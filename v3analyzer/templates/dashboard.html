@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ meta.country_name }} — V3 Save Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --accent: #e94560;
+            --accent2: #53917e;
+            --text-primary: #eee;
+            --text-secondary: #a0a0b0;
+            --gold: #d4a843;
+            --border: #2a2a4a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-card));
+            border-bottom: 2px solid var(--accent);
+            padding: 24px 0;
+            margin-bottom: 24px;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { font-size: 1.8em; color: var(--gold); }
+        h1 small { font-size: 0.5em; color: var(--text-secondary); display: block; }
+        .date-badge {
+            background: var(--accent);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        h2 {
+            color: var(--gold);
+            margin: 24px 0 16px;
+            font-size: 1.3em;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        /* Summary Cards */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .card .label {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .card .value {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: var(--gold);
+            margin-top: 4px;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .chart-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .chart-container h3 {
+            color: var(--text-primary);
+            font-size: 1em;
+            margin-bottom: 12px;
+        }
+        .chart-container canvas {
+            width: 100% !important;
+            max-height: 350px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th {
+            background: var(--bg-card);
+            color: var(--gold);
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 8px 12px;
+            border-top: 1px solid var(--border);
+            font-size: 0.9em;
+        }
+        tr:hover td { background: rgba(233, 69, 96, 0.05); }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .cards { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 0.8em;
+            border-top: 1px solid var(--border);
+            margin-top: 32px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>{{ meta.country_name }}<small>Victoria 3 Save Analysis</small></h1>
+            <div class="date-badge">📅 {{ meta.game_date }}</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Summary Cards -->
+        <div class="cards">
+            {% for card in cards %}
+            <div class="card">
+                <div class="label">{{ card.label }}</div>
+                <div class="value">{{ card.value }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Charts -->
+        <h2>📈 Economic Trends</h2>
+        <div class="charts-grid">
+            {% for chart in charts %}
+            <div class="chart-container">
+                <h3>{{ chart.title }}</h3>
+                <canvas id="chart-{{ loop.index }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if states %}
+        <h2>🏛️ States</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>State</th>
+                    <th class="num">Population</th>
+                    <th class="num">GDP</th>
+                    <th class="num">Infrastructure</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for state in states %}
+                <tr>
+                    <td>{{ state.name }}</td>
+                    <td class="num">{{ state.population_fmt }}</td>
+                    <td class="num">{{ state.gdp_fmt }}</td>
+                    <td class="num">{{ state.infrastructure }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if technology.acquired %}
+        <h2>🔬 Technology ({{ technology.acquired | length }} researched)</h2>
+        {% if technology.researching %}
+        <p style="margin-bottom: 12px; color: var(--accent2);">Currently researching: <strong>{{ technology.researching }}</strong></p>
+        {% endif %}
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px;">
+            {% for tech in technology.acquired %}
+            <span style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; font-size: 0.85em;">{{ tech }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if goods %}
+        <h2>📦 Top Goods Production</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Good</th>
+                    <th class="num">Production</th>
+                    <th class="num">Consumption</th>
+                    <th class="num">Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for good in goods %}
+                <tr>
+                    <td>{{ good.name }}</td>
+                    <td class="num">{{ good.production }}</td>
+                    <td class="num">{{ good.consumption }}</td>
+                    <td class="num">{{ good.price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+
+    <footer>
+        Generated by V3 Save Analyzer • Victoria 3
+    </footer>
+
+    <script>
+    const chartConfigs = {{ charts_json|safe }};
+
+    Chart.defaults.color = '#a0a0b0';
+    Chart.defaults.borderColor = '#2a2a4a';
+
+    chartConfigs.forEach((cfg, i) => {
+        const ctx = document.getElementById('chart-' + (i + 1));
+        if (!ctx) return;
+
+        const colors = [
+            'rgba(212, 168, 67, 1)',   // gold
+            'rgba(233, 69, 96, 1)',    // red
+            'rgba(83, 145, 126, 1)',   // green
+            'rgba(80, 140, 220, 1)',   // blue
+        ];
+
+        const datasets = cfg.datasets.map((ds, j) => ({
+            label: ds.label,
+            data: ds.data,
+            borderColor: colors[j % colors.length],
+            backgroundColor: colors[j % colors.length].replace('1)', '0.1)'),
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.3,
+            fill: ds.fill || false,
+        }));
+
+        // Downsample labels if too many
+        let labels = cfg.labels;
+        const maxPoints = 200;
+        let finalData = datasets;
+        if (labels.length > maxPoints) {
+            const step = Math.ceil(labels.length / maxPoints);
+            labels = labels.filter((_, i) => i % step === 0);
+            finalData = datasets.map(ds => ({
+                ...ds,
+                data: ds.data.filter((_, i) => i % step === 0),
+            }));
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets: finalData },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: datasets.length > 1, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let val = context.parsed.y;
+                                if (Math.abs(val) >= 1e6) return context.dataset.label + ': ' + (val / 1e6).toFixed(1) + 'M';
+                                if (Math.abs(val) >= 1e3) return context.dataset.label + ': ' + (val / 1e3).toFixed(1) + 'K';
+                                return context.dataset.label + ': ' + val.toFixed(1);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        ticks: { maxTicksLimit: 10, maxRotation: 0 }
+                    },
+                    y: {
+                        display: true,
+                        ticks: {
+                            callback: function(val) {
+                                if (Math.abs(val) >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                                if (Math.abs(val) >= 1e3) return (val / 1e3).toFixed(1) + 'K';
+                                return val;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>
