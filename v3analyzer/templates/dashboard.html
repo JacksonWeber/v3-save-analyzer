@@ -102,6 +102,9 @@
             width: 100% !important;
             max-height: 350px;
         }
+        .chart-container.comparison canvas {
+            max-height: 400px;
+        }
 
         /* Tables */
         table {
@@ -174,6 +177,18 @@
             {% endfor %}
         </div>
 
+        {% if comparison_charts %}
+        <h2>🌍 Country Comparison</h2>
+        <div class="charts-grid">
+            {% for chart in comparison_charts %}
+            <div class="chart-container comparison">
+                <h3>{{ chart.title }}</h3>
+                <canvas id="comp-chart-{{ loop.index }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         {% if states %}
         <h2>🏛️ States</h2>
         <table>
@@ -241,33 +256,49 @@
 
     <script>
     const chartConfigs = {{ charts_json|safe }};
+    const compChartConfigs = {{ comparison_charts_json|safe }};
 
     Chart.defaults.color = '#a0a0b0';
     Chart.defaults.borderColor = '#2a2a4a';
 
-    chartConfigs.forEach((cfg, i) => {
-        const ctx = document.getElementById('chart-' + (i + 1));
+    const singleColors = [
+        'rgba(212, 168, 67, 1)',   // gold
+        'rgba(233, 69, 96, 1)',    // red
+        'rgba(83, 145, 126, 1)',   // green
+        'rgba(80, 140, 220, 1)',   // blue
+    ];
+
+    const compColors = [
+        'rgba(212, 168, 67, 1)',   // gold (player)
+        'rgba(233, 69, 96, 1)',    // red
+        'rgba(83, 145, 126, 1)',   // teal
+        'rgba(80, 140, 220, 1)',   // blue
+        'rgba(255, 136, 51, 1)',   // orange
+        'rgba(175, 82, 222, 1)',   // purple
+        'rgba(41, 196, 255, 1)',   // cyan
+        'rgba(255, 194, 87, 1)',   // amber
+        'rgba(255, 105, 180, 1)',  // pink
+        'rgba(124, 252, 0, 1)',    // lime
+    ];
+
+    function renderChart(canvasId, cfg, colorPalette, isComparison) {
+        const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
-        const colors = [
-            'rgba(212, 168, 67, 1)',   // gold
-            'rgba(233, 69, 96, 1)',    // red
-            'rgba(83, 145, 126, 1)',   // green
-            'rgba(80, 140, 220, 1)',   // blue
-        ];
+        const datasets = cfg.datasets.map((ds, j) => {
+            const color = (isComparison && ds.is_player) ? compColors[0] : colorPalette[j % colorPalette.length];
+            return {
+                label: ds.label,
+                data: ds.data,
+                borderColor: color,
+                backgroundColor: color.replace('1)', '0.1)'),
+                borderWidth: (isComparison && ds.is_player) ? 3 : 1.5,
+                pointRadius: 0,
+                tension: 0.3,
+                fill: ds.fill || false,
+            };
+        });
 
-        const datasets = cfg.datasets.map((ds, j) => ({
-            label: ds.label,
-            data: ds.data,
-            borderColor: colors[j % colors.length],
-            backgroundColor: colors[j % colors.length].replace('1)', '0.1)'),
-            borderWidth: 1.5,
-            pointRadius: 0,
-            tension: 0.3,
-            fill: ds.fill || false,
-        }));
-
-        // Downsample labels if too many
         let labels = cfg.labels;
         const maxPoints = 200;
         let finalData = datasets;
@@ -288,7 +319,7 @@
                 maintainAspectRatio: true,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { display: datasets.length > 1, position: 'top' },
+                    legend: { display: isComparison || datasets.length > 1, position: 'top' },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -301,10 +332,7 @@
                     }
                 },
                 scales: {
-                    x: {
-                        display: true,
-                        ticks: { maxTicksLimit: 10, maxRotation: 0 }
-                    },
+                    x: { display: true, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
                     y: {
                         display: true,
                         ticks: {
@@ -318,7 +346,10 @@
                 }
             }
         });
-    });
+    }
+
+    chartConfigs.forEach((cfg, i) => renderChart('chart-' + (i + 1), cfg, singleColors, false));
+    compChartConfigs.forEach((cfg, i) => renderChart('comp-chart-' + (i + 1), cfg, compColors, true));
     </script>
 </body>
 </html>

@@ -17,7 +17,14 @@ def generate_dashboard(data: dict, output_path: str):
 
     cards = _build_cards(data)
     charts = _build_charts(data.get("timeseries", {}))
+
+    comparison = data.get("comparison", [])
+    comparison_charts = []
+    if comparison:
+        comparison_charts = _build_comparison_charts(comparison)
+
     charts_json = json.dumps(charts)
+    comparison_charts_json = json.dumps(comparison_charts)
 
     states = _format_states(data.get("states", []))
     technology = data.get("technology", {"acquired": [], "researching": ""})
@@ -28,6 +35,8 @@ def generate_dashboard(data: dict, output_path: str):
         cards=cards,
         charts=charts,
         charts_json=charts_json,
+        comparison_charts=comparison_charts,
+        comparison_charts_json=comparison_charts_json,
         states=states,
         technology=technology,
         goods=goods,
@@ -188,6 +197,52 @@ def _build_charts(timeseries: dict) -> list:
                 "datasets": [
                     {"label": cdef["label"], "data": data, "fill": cdef["fill"]}
                 ],
+            })
+
+    return charts
+
+
+def _build_comparison_charts(countries: list) -> list:
+    """Build multi-country comparison charts."""
+    metrics = [
+        ("gdp", "GDP Comparison"),
+        ("gdp_per_capita", "GDP Per Capita Comparison"),
+        ("population", "Population Comparison"),
+        ("standard_of_living", "Standard of Living Comparison"),
+        ("literacy", "Literacy Rate Comparison"),
+        ("prestige", "Prestige Comparison"),
+    ]
+
+    charts = []
+    for metric_key, title in metrics:
+        datasets = []
+        max_len = 0
+
+        for country in countries:
+            ts = country.get("timeseries", {})
+            if metric_key not in ts or len(ts[metric_key]) < 2:
+                continue
+
+            data = ts[metric_key]
+            tag = country.get("tag", "?")
+            label = tag
+            if country.get("is_player"):
+                label += " ★"
+
+            datasets.append({
+                "label": label,
+                "data": data,
+                "fill": False,
+                "is_player": country.get("is_player", False),
+            })
+            max_len = max(max_len, len(data))
+
+        if datasets:
+            labels = [f"W{i+1}" for i in range(max_len)]
+            charts.append({
+                "title": title,
+                "labels": labels,
+                "datasets": datasets,
             })
 
     return charts

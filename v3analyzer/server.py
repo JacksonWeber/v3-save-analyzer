@@ -131,6 +131,22 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
             display: none;
         }
         .error.active { display: block; }
+        .compare-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin: 16px 0;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.95em;
+        }
+        .compare-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
         .hint {
             color: var(--text-secondary);
             font-size: 0.8em;
@@ -157,6 +173,10 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
                 <div class="text">Drop your <strong>.v3 save file</strong> here<br>or click to browse</div>
             </div>
             <div class="file-name" id="fileName"></div>
+            <label class="compare-toggle">
+                <input type="checkbox" name="compare" id="compareCheck" checked>
+                <span>Compare all countries on charts</span>
+            </label>
             <button type="submit" id="submitBtn" disabled>Analyze Save</button>
         </form>
 
@@ -278,8 +298,9 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
-        # Extract the file from multipart data
+        # Extract file and form fields
         file_data = self._extract_file(body, boundary)
+        compare = self._extract_field(body, boundary, "compare")
         if file_data is None:
             self._send_error_text(400, "No file uploaded")
             return
@@ -296,7 +317,7 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 meta_parsed = parse_pdx(raw["meta"])
 
             gamestate = parse_pdx(raw["gamestate"])
-            data = extract_all(gamestate, meta_parsed)
+            data = extract_all(gamestate, meta_parsed, compare_countries=bool(compare))
 
             output_path = os.path.join(self.output_dir, "index.html")
             generate_dashboard(data, output_path)
@@ -327,6 +348,21 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 if file_content.endswith(b"\r\n"):
                     file_content = file_content[:-2]
                 return file_content
+        return None
+
+    def _extract_field(self, body, boundary, field_name):
+        """Extract a non-file form field value from multipart data."""
+        parts = body.split(b"--" + boundary)
+        target = f'name="{field_name}"'.encode()
+        for part in parts:
+            if target in part and b"filename=" not in part:
+                header_end = part.find(b"\r\n\r\n")
+                if header_end == -1:
+                    continue
+                value = part[header_end + 4:]
+                if value.endswith(b"\r\n"):
+                    value = value[:-2]
+                return value.decode("utf-8", errors="replace").strip()
         return None
 
     def _send_error_text(self, code, message):

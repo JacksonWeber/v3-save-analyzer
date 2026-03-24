@@ -14,7 +14,7 @@ Extracts structured metrics from parsed PDX data:
 from typing import Any
 
 
-def extract_all(gamestate: dict, meta: dict) -> dict:
+def extract_all(gamestate: dict, meta: dict, compare_countries: bool = False) -> dict:
     """Extract all available metrics from a parsed save."""
     player_tag = _get_player_tag(meta, gamestate)
     player_id = _find_country_id(gamestate, player_tag)
@@ -23,7 +23,7 @@ def extract_all(gamestate: dict, meta: dict) -> dict:
     country_data = _get_country(gamestate, player_id)
     history = _get_country_history(gamestate, player_id)
 
-    return {
+    result = {
         "meta": {
             "player_tag": player_tag,
             "player_id": player_id,
@@ -36,6 +36,50 @@ def extract_all(gamestate: dict, meta: dict) -> dict:
         "technology": _extract_technology(country_data),
         "goods": _extract_goods_production(gamestate, player_id),
     }
+
+    if compare_countries:
+        result["comparison"] = _extract_all_countries(
+            gamestate, player_id
+        )
+
+    return result
+
+
+def _extract_all_countries(gamestate: dict, player_id: int) -> list:
+    """Extract timeseries for all countries that have history data."""
+    countries_db = _get_countries_db(gamestate)
+    country_history = gamestate.get("country_history", {})
+    if isinstance(country_history, dict) and "database" in country_history:
+        country_history = country_history["database"]
+
+    countries = []
+    if not isinstance(country_history, dict):
+        return countries
+
+    for cid_key, history in country_history.items():
+        if not isinstance(history, dict):
+            continue
+        ts = _extract_timeseries(history)
+        if not ts or "gdp" not in ts:
+            continue
+
+        country_data = countries_db.get(cid_key, {})
+        tag = str(country_data.get("definition", cid_key))
+        name = _get_country_name(country_data, tag)
+        is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+
+        countries.append({
+            "tag": tag,
+            "name": name,
+            "is_player": is_player,
+            "timeseries": ts,
+        })
+
+    # Sort: player first, then by final GDP descending
+    countries.sort(
+        key=lambda c: (not c["is_player"], -(c["timeseries"].get("gdp", [0])[-1])),
+    )
+    return countries
 
 
 def _get_player_tag(meta: dict, gamestate: dict) -> str:
