@@ -250,13 +250,23 @@ def build_ownership_from_save(territory_map: dict) -> dict:
     The territory_map.countries list has entries with 'tag' and 'states' list.
     State names in the save are like 'Home Counties' but in game files they're
     'STATE_HOME_COUNTIES'. We need to map between them.
+    Subjects are resolved to their overlord so they appear as one realm on the map.
     """
+    subject_map = territory_map.get("subject_map", {})
     ownership = {}
     for country in territory_map.get("countries", []):
         tag = country.get("tag", "")
+        # Resolve subject → overlord chain
+        resolved = tag
+        seen = {resolved}
+        while resolved in subject_map:
+            resolved = subject_map[resolved]
+            if resolved in seen:
+                break  # guard against circular refs
+            seen.add(resolved)
         for state in country.get("states", []):
             # Convert "Home Counties" back to "STATE_HOME_COUNTIES"
             name = state.get("name", "")
             state_key = "STATE_" + name.upper().replace(" ", "_")
-            ownership[state_key] = tag
+            ownership[state_key] = resolved
     return ownership

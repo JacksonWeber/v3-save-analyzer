@@ -426,6 +426,44 @@ def _extract_goods_production(gamestate: dict, country_id: int) -> list:
     return goods[:20]
 
 
+def _extract_subject_map(gamestate: dict) -> dict:
+    """Extract subject → overlord tag mapping from gamestate.
+    In V3 saves, subjects have an 'overlord' field with the overlord's country id.
+    Returns dict of subject_tag → overlord_tag.
+    """
+    countries_db = _get_countries_db(gamestate)
+
+    # Build country_id → tag mapping
+    id_to_tag = {}
+    for cid, cdata in countries_db.items():
+        if isinstance(cdata, dict):
+            tag = str(cdata.get("definition", cdata.get("tag", str(cid))))
+            id_to_tag[cid] = tag
+            id_to_tag[str(cid)] = tag
+            id_to_tag[int(cid) if str(cid).isdigit() else cid] = tag
+
+    subject_map = {}  # subject_tag → overlord_tag
+    for cid, cdata in countries_db.items():
+        if not isinstance(cdata, dict):
+            continue
+        overlord = cdata.get("overlord")
+        if overlord is None:
+            continue
+        # overlord can be a dict like { country = X } or just an id
+        if isinstance(overlord, dict):
+            overlord_id = overlord.get("country", overlord.get("id"))
+        else:
+            overlord_id = overlord
+        if overlord_id is None:
+            continue
+        subject_tag = id_to_tag.get(cid, id_to_tag.get(str(cid), str(cid)))
+        overlord_tag = id_to_tag.get(overlord_id, id_to_tag.get(str(overlord_id), str(overlord_id)))
+        if subject_tag and overlord_tag and subject_tag != overlord_tag:
+            subject_map[subject_tag] = overlord_tag
+
+    return subject_map
+
+
 def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
     """Extract territory data: all states grouped by owning country."""
     countries_db = _get_countries_db(gamestate)
@@ -437,6 +475,9 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
             tag = str(cdata.get("definition", cdata.get("tag", str(cid))))
             id_to_info[cid] = tag
             id_to_info[str(cid)] = tag
+
+    # Extract subject relationships
+    subject_map = _extract_subject_map(gamestate)
 
     # Collect all states grouped by owner tag
     territories = {}  # tag → { states: [...], total_pop, total_gdp }
@@ -483,4 +524,5 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
     return {
         "player_tag": player_tag,
         "countries": country_list,
+        "subject_map": subject_map,
     }

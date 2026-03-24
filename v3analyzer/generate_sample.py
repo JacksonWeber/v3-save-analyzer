@@ -626,6 +626,7 @@ COUNTRIES = {
     },
     "EGY": {
         "name": "Egypt", "type": "unrecognized", "id": 16,
+        "overlord": 6,  # Subject of TUR (Ottoman Empire)
         "gdp_base": 12000, "gdp_growth": 0.00025, "pop_base": 5500000, "pop_growth": 0.00005,
         "sol_base": 7.5, "sol_improve": 0.00015, "lit_base": 0.06, "lit_improve": 0.000015,
         "rev_base": 5000, "rev_growth": 0.0002, "exp_base": 4800, "exp_growth": 0.0002,
@@ -677,6 +678,84 @@ COUNTRIES = {
             ("state_laristan", 228571, 854, 5),
         ],
     },
+    "TUN": {
+        "name": "Tunis", "type": "unrecognized", "id": 18,
+        "overlord": 6,  # Subject of TUR (Ottoman Empire)
+        "gdp_base": 3000, "gdp_growth": 0.00015, "pop_base": 1200000, "pop_growth": 0.00003,
+        "sol_base": 6.5, "sol_improve": 0.0001, "lit_base": 0.04, "lit_improve": 0.00001,
+        "rev_base": 1200, "rev_growth": 0.00015, "exp_base": 1100, "exp_growth": 0.00015,
+        "prestige_base": 5, "money": 8000,
+        "techs": [],
+        "researching": "centralization",
+        "army": 15, "navy": 5,
+        "states": [
+            ("state_tunis", 720000, 5400, 7),
+            ("state_sousse", 360000, 1800, 5),
+            ("state_djerba", 120000, 420, 5),
+        ],
+    },
+    "TRI": {
+        "name": "Tripolitania", "type": "unrecognized", "id": 19,
+        "overlord": 6,  # Subject of TUR (Ottoman Empire)
+        "gdp_base": 1500, "gdp_growth": 0.0001, "pop_base": 600000, "pop_growth": 0.00002,
+        "sol_base": 5.5, "sol_improve": 0.00005, "lit_base": 0.03, "lit_improve": 0.000005,
+        "rev_base": 600, "rev_growth": 0.0001, "exp_base": 580, "exp_growth": 0.0001,
+        "prestige_base": 3, "money": 4000,
+        "techs": [],
+        "researching": "centralization",
+        "army": 8, "navy": 3,
+        "states": [
+            ("state_tripolitania", 360000, 1800, 5),
+            ("state_fezzan", 120000, 240, 5),
+            ("state_cyrenaica", 120000, 360, 5),
+        ],
+    },
+    "WAL": {
+        "name": "Wallachia", "type": "recognized", "id": 20,
+        "overlord": 6,  # Subject of TUR (Ottoman Empire)
+        "gdp_base": 4000, "gdp_growth": 0.0002, "pop_base": 2500000, "pop_growth": 0.00004,
+        "sol_base": 7.0, "sol_improve": 0.0001, "lit_base": 0.08, "lit_improve": 0.000015,
+        "rev_base": 1600, "rev_growth": 0.0002, "exp_base": 1500, "exp_growth": 0.0002,
+        "prestige_base": 8, "money": 12000,
+        "techs": [],
+        "researching": "centralization",
+        "army": 20, "navy": 0,
+        "states": [
+            ("state_wallachia", 1750000, 14000, 8),
+            ("state_oltenia", 750000, 4000, 6),
+        ],
+    },
+    "MOL": {
+        "name": "Moldavia", "type": "recognized", "id": 21,
+        "overlord": 6,  # Subject of TUR (Ottoman Empire)
+        "gdp_base": 2500, "gdp_growth": 0.00015, "pop_base": 1500000, "pop_growth": 0.00003,
+        "sol_base": 6.5, "sol_improve": 0.0001, "lit_base": 0.06, "lit_improve": 0.00001,
+        "rev_base": 1000, "rev_growth": 0.00015, "exp_base": 950, "exp_growth": 0.00015,
+        "prestige_base": 5, "money": 8000,
+        "techs": [],
+        "researching": "centralization",
+        "army": 12, "navy": 0,
+        "states": [
+            ("state_moldavia", 1050000, 6300, 7),
+            ("state_southern_bessarabia", 450000, 1800, 5),
+        ],
+    },
+    "HAN": {
+        "name": "Hannover", "type": "recognized", "id": 22,
+        "overlord": 0,  # Subject of GBR (personal union)
+        "gdp_base": 8000, "gdp_growth": 0.0003, "pop_base": 1800000, "pop_growth": 0.00004,
+        "sol_base": 9.5, "sol_improve": 0.00025, "lit_base": 0.50, "lit_improve": 0.000035,
+        "rev_base": 3200, "rev_growth": 0.00025, "exp_base": 3000, "exp_growth": 0.00025,
+        "prestige_base": 20, "money": 35000,
+        "techs": ["enclosure", "manufacturies", "centralization"],
+        "researching": "nationalism",
+        "army": 25, "navy": 5,
+        "states": [
+            ("state_hannover", 1080000, 16200, 18),
+            ("state_east_frisia", 360000, 3960, 12),
+            ("state_brunswick", 360000, 4680, 14),
+        ],
+    },
 }
 
 
@@ -692,11 +771,14 @@ playthrough_id = "synthetic_test_001"
     cm_entries = []
     for tag, c in COUNTRIES.items():
         techs_str = "\n".join(f'                    "{t}"' for t in c["techs"])
+        overlord_str = ""
+        if "overlord" in c:
+            overlord_str = f'\n            overlord = {{ country = {c["overlord"]} }}'
         cm_entries.append(f'''        {c["id"]} = {{
             definition = "{tag}"
             country_type = "{c["type"]}"
             money = {c["money"]}
-            prestige = {c["prestige_base"]}
+            prestige = {c["prestige_base"]}{overlord_str}
             technology = {{
                 acquired_technologies = {{
 {techs_str}
