@@ -206,11 +206,14 @@ def _build_comparison_charts(countries: list) -> list:
     """Build multi-country comparison charts."""
     metrics = [
         ("gdp", "GDP Comparison"),
+        ("gdp_growth_rate", "GDP Growth Rate (%) Comparison"),
         ("gdp_per_capita", "GDP Per Capita Comparison"),
         ("population", "Population Comparison"),
         ("standard_of_living", "Standard of Living Comparison"),
         ("literacy", "Literacy Rate Comparison"),
         ("prestige", "Prestige Comparison"),
+        ("revenue", "Revenue Comparison"),
+        ("expenditure", "Expenditure Comparison"),
     ]
 
     charts = []

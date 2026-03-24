@@ -167,7 +167,18 @@
         </div>
 
         <!-- Charts -->
-        <h2>📈 Economic Trends</h2>
+        {% if comparison_charts %}
+        <h2>🌍 Country Comparison</h2>
+        <div class="charts-grid">
+            {% for chart in comparison_charts %}
+            <div class="chart-container comparison">
+                <h3>{{ chart.title }}</h3>
+                <canvas id="comp-chart-{{ loop.index }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+
+        <h2>📈 {{ meta.country_name }} Details</h2>
         <div class="charts-grid">
             {% for chart in charts %}
             <div class="chart-container">
@@ -176,14 +187,13 @@
             </div>
             {% endfor %}
         </div>
-
-        {% if comparison_charts %}
-        <h2>🌍 Country Comparison</h2>
+        {% else %}
+        <h2>📈 Economic Trends</h2>
         <div class="charts-grid">
-            {% for chart in comparison_charts %}
-            <div class="chart-container comparison">
+            {% for chart in charts %}
+            <div class="chart-container">
                 <h3>{{ chart.title }}</h3>
-                <canvas id="comp-chart-{{ loop.index }}"></canvas>
+                <canvas id="chart-{{ loop.index }}"></canvas>
             </div>
             {% endfor %}
         </div>
