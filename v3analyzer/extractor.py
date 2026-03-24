@@ -426,43 +426,20 @@ def _extract_goods_production(gamestate: dict, country_id: int) -> list:
     return goods[:20]
 
 
-# Mapping of Victoria 3 country tags to ISO 3166-1 numeric codes
-# used by Natural Earth / D3 world-110m TopoJSON
-VIC3_TAG_TO_ISO_NUM = {
-    "GBR": "826", "FRA": "250", "PRU": "276", "AUS": "040", "RUS": "643",
-    "USA": "840", "TUR": "792", "SPA": "724", "NET": "528", "BEL": "056",
-    "SAR": "380", "SWE": "752", "JAP": "392", "QNG": "156", "BRZ": "076",
-    "MEX": "484", "EGY": "818", "PER": "364",
-    # Extended mappings for real saves
-    "DEN": "208", "NOR": "578", "POR": "620", "SWI": "756", "GRE": "300",
-    "ROM": "642", "SER": "688", "BAV": "276", "HAM": "276", "HAN": "276",
-    "WUR": "276", "SAX": "276", "TUS": "380", "SIC": "380", "PAP": "380",
-    "IRE": "372", "POL": "616", "KOR": "410", "SIA": "764", "DAI": "704",
-    "AFG": "004", "ETH": "231", "ZUL": "710", "ARG": "032", "CLM": "170",
-    "VNZ": "862", "CHL": "152", "UCA": "320", "PEU": "604", "BOL": "068",
-    "URG": "858", "PRG": "600", "ECU": "218", "HAI": "332", "CUB": "192",
-    "MAD": "450", "MOR": "504", "TUN": "788", "ALG": "012", "TRI": "796",
-    "MCK": "504", "BUR": "104", "NZL": "554", "CLN": "144", "NEP": "524",
-    "PNJ": "356", "HYD": "356", "MYS": "356", "MAR": "356", "AWD": "356",
-    "BHO": "064", "HEJ": "682", "OMA": "512", "ABU": "784",
-}
-
-
 def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
-    """Extract which countries own which states, mapped to ISO codes for rendering."""
+    """Extract territory data: all states grouped by owning country."""
     countries_db = _get_countries_db(gamestate)
 
-    # Build country_id → tag mapping
-    id_to_tag = {}
+    # Build country_id → tag/name mapping
+    id_to_info = {}
     for cid, cdata in countries_db.items():
         if isinstance(cdata, dict):
-            tag = cdata.get("definition", cdata.get("tag", str(cid)))
-            id_to_tag[cid] = str(tag)
-            id_to_tag[str(cid)] = str(tag)
+            tag = str(cdata.get("definition", cdata.get("tag", str(cid))))
+            id_to_info[cid] = tag
+            id_to_info[str(cid)] = tag
 
-    # Count states per country tag
-    tag_state_count = {}
-    tag_population = {}
+    # Collect all states grouped by owner tag
+    territories = {}  # tag → { states: [...], total_pop, total_gdp }
     sm = gamestate.get("state_manager", gamestate.get("states", {}))
     if isinstance(sm, dict):
         db = sm.get("database", sm)
@@ -471,26 +448,39 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
                 if not isinstance(sdata, dict):
                     continue
                 owner = sdata.get("country", sdata.get("owner"))
-                tag = id_to_tag.get(owner, id_to_tag.get(str(owner), str(owner)))
-                tag_state_count[tag] = tag_state_count.get(tag, 0) + 1
+                tag = id_to_info.get(owner, id_to_info.get(str(owner), str(owner)))
+                name = str(sdata.get("definition", sdata.get("name", str(sid))))
                 pop = sdata.get("population", 0)
-                if isinstance(pop, (int, float)):
-                    tag_population[tag] = tag_population.get(tag, 0) + pop
+                gdp = sdata.get("gdp", 0)
+                infra = sdata.get("infrastructure", 0)
+                if not isinstance(pop, (int, float)):
+                    pop = 0
+                if not isinstance(gdp, (int, float)):
+                    gdp = 0
 
-    # Build output: tag → {iso, states, population, is_player}
-    country_territories = {}
-    for tag in tag_state_count:
-        iso = VIC3_TAG_TO_ISO_NUM.get(tag)
-        if iso:
-            country_territories[iso] = {
-                "tag": tag,
-                "states": tag_state_count[tag],
-                "population": tag_population.get(tag, 0),
-                "is_player": (tag == player_tag),
-            }
+                if tag not in territories:
+                    territories[tag] = {
+                        "tag": tag,
+                        "is_player": (tag == player_tag),
+                        "states": [],
+                        "total_pop": 0,
+                        "total_gdp": 0,
+                    }
+                territories[tag]["states"].append({
+                    "name": name.replace("state_", "").replace("_", " ").title(),
+                    "population": pop,
+                    "gdp": gdp,
+                    "infrastructure": infra,
+                })
+                territories[tag]["total_pop"] += pop
+                territories[tag]["total_gdp"] += gdp
+
+    # Sort countries by total GDP descending, states within each by population
+    country_list = sorted(territories.values(), key=lambda c: -c["total_gdp"])
+    for c in country_list:
+        c["states"].sort(key=lambda s: -s["population"])
 
     return {
         "player_tag": player_tag,
-        "player_iso": VIC3_TAG_TO_ISO_NUM.get(player_tag, ""),
-        "countries": country_territories,
+        "countries": country_list,
     }
