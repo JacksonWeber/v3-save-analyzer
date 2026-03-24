@@ -13,13 +13,15 @@ WEEKS_PER_YEAR = 52
 
 
 def _week_to_year_labels(num_weeks: int) -> list:
-    """Convert week indices to in-game year labels (e.g. '1836', '1837.5')."""
+    """Convert week indices to in-game year labels. Shows quarters for short games, years only for long ones."""
+    total_years = num_weeks / WEEKS_PER_YEAR
+    show_quarters = total_years <= 15
     labels = []
     for i in range(num_weeks):
         year = GAME_START_YEAR + i / WEEKS_PER_YEAR
         if i % WEEKS_PER_YEAR == 0:
             labels.append(str(int(year)))
-        elif i % (WEEKS_PER_YEAR // 4) == 0:
+        elif show_quarters and i % (WEEKS_PER_YEAR // 4) == 0:
             q = (i % WEEKS_PER_YEAR) // (WEEKS_PER_YEAR // 4)
             month_names = ["", "Apr", "Jul", "Oct"]
             labels.append(f"{month_names[q]} {int(year)}")

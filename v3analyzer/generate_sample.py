@@ -7,7 +7,7 @@ import random
 random.seed(42)
 
 
-def _gdp_series(base, growth_rate, weeks, noise=0.02):
+def _gdp_series(base, growth_rate, weeks, noise=0.001):
     """Generate GDP-like exponential growth with noise."""
     values = []
     val = base
@@ -21,7 +21,7 @@ def _pop_series(base, growth_rate, weeks):
     values = []
     val = base
     for i in range(weeks):
-        val *= (1 + growth_rate + random.uniform(-0.0005, 0.0005))
+        val *= (1 + growth_rate + random.uniform(-0.000025, 0.000025))
         values.append(int(val))
     return values
 
@@ -30,7 +30,7 @@ def _sol_series(base, improvement, weeks):
     values = []
     val = base
     for i in range(weeks):
-        val += improvement + random.uniform(-0.02, 0.02)
+        val += improvement + random.uniform(-0.001, 0.001)
         values.append(round(val, 2))
     return values
 
@@ -39,12 +39,12 @@ def _literacy_series(base, improvement, weeks):
     values = []
     val = base
     for i in range(weeks):
-        val = min(1.0, val + improvement + random.uniform(-0.001, 0.001))
+        val = min(1.0, val + improvement + random.uniform(-0.00005, 0.00005))
         values.append(round(val, 4))
     return values
 
 
-def _budget_series(base, growth, weeks, noise=0.03):
+def _budget_series(base, growth, weeks, noise=0.0015):
     values = []
     val = base
     for i in range(weeks):
@@ -57,7 +57,7 @@ def _prestige_series(base, weeks):
     values = []
     val = base
     for i in range(weeks):
-        val += random.uniform(0.5, 3.0)
+        val += random.uniform(0.025, 0.15)
         values.append(round(val, 1))
     return values
 
@@ -71,14 +71,14 @@ def _fmt_array(values):
     return "\n".join(lines)
 
 
-WEEKS = 260  # ~5 years of weekly data (1836-1841)
+WEEKS = 5200  # ~100 years of weekly data (1836-1936)
 
 COUNTRIES = {
     "GBR": {
         "name": "Great Britain", "type": "recognized", "id": 0,
-        "gdp_base": 120000, "gdp_growth": 0.008, "pop_base": 16000000, "pop_growth": 0.001,
-        "sol_base": 11.5, "sol_improve": 0.008, "lit_base": 0.45, "lit_improve": 0.0008,
-        "rev_base": 45000, "rev_growth": 0.007, "exp_base": 40000, "exp_growth": 0.006,
+        "gdp_base": 120000, "gdp_growth": 0.0004, "pop_base": 16000000, "pop_growth": 0.00005,
+        "sol_base": 11.5, "sol_improve": 0.0004, "lit_base": 0.45, "lit_improve": 0.00004,
+        "rev_base": 45000, "rev_growth": 0.00035, "exp_base": 40000, "exp_growth": 0.0003,
         "prestige_base": 200, "money": 850000,
         "techs": ["enclosure", "manufacturies", "railways", "steel_working", "nationalism",
                    "empiricism", "centralization", "democracy", "urbanization",
@@ -103,9 +103,9 @@ COUNTRIES = {
     },
     "FRA": {
         "name": "France", "type": "recognized", "id": 1,
-        "gdp_base": 100000, "gdp_growth": 0.006, "pop_base": 28000000, "pop_growth": 0.0005,
-        "sol_base": 10.8, "sol_improve": 0.006, "lit_base": 0.38, "lit_improve": 0.0007,
-        "rev_base": 38000, "rev_growth": 0.006, "exp_base": 36000, "exp_growth": 0.005,
+        "gdp_base": 100000, "gdp_growth": 0.0003, "pop_base": 28000000, "pop_growth": 0.000025,
+        "sol_base": 10.8, "sol_improve": 0.0003, "lit_base": 0.38, "lit_improve": 0.000035,
+        "rev_base": 38000, "rev_growth": 0.0003, "exp_base": 36000, "exp_growth": 0.00025,
         "prestige_base": 180, "money": 620000,
         "techs": ["enclosure", "manufacturies", "railways", "nationalism", "centralization",
                    "urbanization", "international_trade", "stock_exchange",
@@ -121,9 +121,9 @@ COUNTRIES = {
     },
     "PRU": {
         "name": "Prussia", "type": "recognized", "id": 2,
-        "gdp_base": 75000, "gdp_growth": 0.009, "pop_base": 14000000, "pop_growth": 0.0012,
-        "sol_base": 10.0, "sol_improve": 0.007, "lit_base": 0.55, "lit_improve": 0.0009,
-        "rev_base": 30000, "rev_growth": 0.008, "exp_base": 28000, "exp_growth": 0.007,
+        "gdp_base": 75000, "gdp_growth": 0.00045, "pop_base": 14000000, "pop_growth": 0.00006,
+        "sol_base": 10.0, "sol_improve": 0.00035, "lit_base": 0.55, "lit_improve": 0.000045,
+        "rev_base": 30000, "rev_growth": 0.0004, "exp_base": 28000, "exp_growth": 0.00035,
         "prestige_base": 150, "money": 420000,
         "techs": ["enclosure", "manufacturies", "nationalism", "centralization",
                    "empiricism", "urbanization", "atmospheric_engine"],
@@ -137,9 +137,9 @@ COUNTRIES = {
     },
     "AUS": {
         "name": "Austria", "type": "recognized", "id": 3,
-        "gdp_base": 65000, "gdp_growth": 0.005, "pop_base": 30000000, "pop_growth": 0.0008,
-        "sol_base": 9.5, "sol_improve": 0.004, "lit_base": 0.25, "lit_improve": 0.0005,
-        "rev_base": 28000, "rev_growth": 0.005, "exp_base": 27000, "exp_growth": 0.005,
+        "gdp_base": 65000, "gdp_growth": 0.00025, "pop_base": 30000000, "pop_growth": 0.00004,
+        "sol_base": 9.5, "sol_improve": 0.0002, "lit_base": 0.25, "lit_improve": 0.000025,
+        "rev_base": 28000, "rev_growth": 0.00025, "exp_base": 27000, "exp_growth": 0.00025,
         "prestige_base": 160, "money": 380000,
         "techs": ["enclosure", "manufacturies", "nationalism", "centralization",
                    "atmospheric_engine"],
@@ -154,9 +154,9 @@ COUNTRIES = {
     },
     "RUS": {
         "name": "Russia", "type": "recognized", "id": 4,
-        "gdp_base": 90000, "gdp_growth": 0.004, "pop_base": 60000000, "pop_growth": 0.0015,
-        "sol_base": 7.5, "sol_improve": 0.003, "lit_base": 0.12, "lit_improve": 0.0003,
-        "rev_base": 35000, "rev_growth": 0.004, "exp_base": 34000, "exp_growth": 0.004,
+        "gdp_base": 90000, "gdp_growth": 0.0002, "pop_base": 60000000, "pop_growth": 0.000075,
+        "sol_base": 7.5, "sol_improve": 0.00015, "lit_base": 0.12, "lit_improve": 0.000015,
+        "rev_base": 35000, "rev_growth": 0.0002, "exp_base": 34000, "exp_growth": 0.0002,
         "prestige_base": 170, "money": 500000,
         "techs": ["enclosure", "manufacturies", "centralization"],
         "researching": "nationalism",
@@ -170,9 +170,9 @@ COUNTRIES = {
     },
     "USA": {
         "name": "United States", "type": "recognized", "id": 5,
-        "gdp_base": 55000, "gdp_growth": 0.012, "pop_base": 13000000, "pop_growth": 0.002,
-        "sol_base": 12.0, "sol_improve": 0.009, "lit_base": 0.60, "lit_improve": 0.001,
-        "rev_base": 20000, "rev_growth": 0.010, "exp_base": 18000, "exp_growth": 0.009,
+        "gdp_base": 55000, "gdp_growth": 0.0006, "pop_base": 13000000, "pop_growth": 0.0001,
+        "sol_base": 12.0, "sol_improve": 0.00045, "lit_base": 0.60, "lit_improve": 0.00005,
+        "rev_base": 20000, "rev_growth": 0.0005, "exp_base": 18000, "exp_growth": 0.00045,
         "prestige_base": 80, "money": 250000,
         "techs": ["enclosure", "manufacturies", "democracy", "centralization",
                    "cotton_gin", "atmospheric_engine", "empiricism"],
@@ -187,9 +187,9 @@ COUNTRIES = {
     },
     "TUR": {
         "name": "Ottoman Empire", "type": "recognized", "id": 6,
-        "gdp_base": 45000, "gdp_growth": 0.003, "pop_base": 25000000, "pop_growth": 0.001,
-        "sol_base": 8.0, "sol_improve": 0.002, "lit_base": 0.08, "lit_improve": 0.0003,
-        "rev_base": 18000, "rev_growth": 0.003, "exp_base": 19000, "exp_growth": 0.004,
+        "gdp_base": 45000, "gdp_growth": 0.00015, "pop_base": 25000000, "pop_growth": 0.00005,
+        "sol_base": 8.0, "sol_improve": 0.0001, "lit_base": 0.08, "lit_improve": 0.000015,
+        "rev_base": 18000, "rev_growth": 0.00015, "exp_base": 19000, "exp_growth": 0.0002,
         "prestige_base": 100, "money": 180000,
         "techs": ["centralization"],
         "researching": "enclosure",
@@ -202,9 +202,9 @@ COUNTRIES = {
     },
     "SPA": {
         "name": "Spain", "type": "recognized", "id": 7,
-        "gdp_base": 40000, "gdp_growth": 0.004, "pop_base": 12000000, "pop_growth": 0.0006,
-        "sol_base": 9.0, "sol_improve": 0.004, "lit_base": 0.20, "lit_improve": 0.0005,
-        "rev_base": 15000, "rev_growth": 0.004, "exp_base": 16000, "exp_growth": 0.005,
+        "gdp_base": 40000, "gdp_growth": 0.0002, "pop_base": 12000000, "pop_growth": 0.00003,
+        "sol_base": 9.0, "sol_improve": 0.0002, "lit_base": 0.20, "lit_improve": 0.000025,
+        "rev_base": 15000, "rev_growth": 0.0002, "exp_base": 16000, "exp_growth": 0.00025,
         "prestige_base": 90, "money": 140000,
         "techs": ["enclosure", "manufacturies", "centralization"],
         "researching": "nationalism",
@@ -217,9 +217,9 @@ COUNTRIES = {
     },
     "NET": {
         "name": "Netherlands", "type": "recognized", "id": 8,
-        "gdp_base": 35000, "gdp_growth": 0.007, "pop_base": 3000000, "pop_growth": 0.001,
-        "sol_base": 11.0, "sol_improve": 0.007, "lit_base": 0.55, "lit_improve": 0.0008,
-        "rev_base": 14000, "rev_growth": 0.006, "exp_base": 12000, "exp_growth": 0.005,
+        "gdp_base": 35000, "gdp_growth": 0.00035, "pop_base": 3000000, "pop_growth": 0.00005,
+        "sol_base": 11.0, "sol_improve": 0.00035, "lit_base": 0.55, "lit_improve": 0.00004,
+        "rev_base": 14000, "rev_growth": 0.0003, "exp_base": 12000, "exp_growth": 0.00025,
         "prestige_base": 70, "money": 200000,
         "techs": ["enclosure", "manufacturies", "international_trade", "stock_exchange",
                    "centralization", "urbanization"],
@@ -232,9 +232,9 @@ COUNTRIES = {
     },
     "BEL": {
         "name": "Belgium", "type": "recognized", "id": 9,
-        "gdp_base": 28000, "gdp_growth": 0.009, "pop_base": 4000000, "pop_growth": 0.0008,
-        "sol_base": 10.5, "sol_improve": 0.006, "lit_base": 0.48, "lit_improve": 0.0007,
-        "rev_base": 11000, "rev_growth": 0.007, "exp_base": 10000, "exp_growth": 0.006,
+        "gdp_base": 28000, "gdp_growth": 0.00045, "pop_base": 4000000, "pop_growth": 0.00004,
+        "sol_base": 10.5, "sol_improve": 0.0003, "lit_base": 0.48, "lit_improve": 0.000035,
+        "rev_base": 11000, "rev_growth": 0.00035, "exp_base": 10000, "exp_growth": 0.0003,
         "prestige_base": 40, "money": 120000,
         "techs": ["enclosure", "manufacturies", "railways", "centralization",
                    "urbanization", "atmospheric_engine"],
@@ -247,9 +247,9 @@ COUNTRIES = {
     },
     "SAR": {
         "name": "Sardinia-Piedmont", "type": "recognized", "id": 10,
-        "gdp_base": 22000, "gdp_growth": 0.007, "pop_base": 5000000, "pop_growth": 0.0007,
-        "sol_base": 9.2, "sol_improve": 0.005, "lit_base": 0.28, "lit_improve": 0.0006,
-        "rev_base": 9000, "rev_growth": 0.006, "exp_base": 8500, "exp_growth": 0.006,
+        "gdp_base": 22000, "gdp_growth": 0.00035, "pop_base": 5000000, "pop_growth": 0.000035,
+        "sol_base": 9.2, "sol_improve": 0.00025, "lit_base": 0.28, "lit_improve": 0.00003,
+        "rev_base": 9000, "rev_growth": 0.0003, "exp_base": 8500, "exp_growth": 0.0003,
         "prestige_base": 50, "money": 95000,
         "techs": ["enclosure", "manufacturies", "centralization", "nationalism"],
         "researching": "railways",
@@ -261,9 +261,9 @@ COUNTRIES = {
     },
     "SWE": {
         "name": "Sweden", "type": "recognized", "id": 11,
-        "gdp_base": 20000, "gdp_growth": 0.006, "pop_base": 3500000, "pop_growth": 0.0008,
-        "sol_base": 10.0, "sol_improve": 0.005, "lit_base": 0.65, "lit_improve": 0.0006,
-        "rev_base": 8000, "rev_growth": 0.005, "exp_base": 7500, "exp_growth": 0.005,
+        "gdp_base": 20000, "gdp_growth": 0.0003, "pop_base": 3500000, "pop_growth": 0.00004,
+        "sol_base": 10.0, "sol_improve": 0.00025, "lit_base": 0.65, "lit_improve": 0.00003,
+        "rev_base": 8000, "rev_growth": 0.00025, "exp_base": 7500, "exp_growth": 0.00025,
         "prestige_base": 45, "money": 110000,
         "techs": ["enclosure", "manufacturies", "centralization", "empiricism"],
         "researching": "nationalism",
@@ -275,9 +275,9 @@ COUNTRIES = {
     },
     "JAP": {
         "name": "Japan", "type": "unrecognized", "id": 12,
-        "gdp_base": 30000, "gdp_growth": 0.005, "pop_base": 30000000, "pop_growth": 0.0008,
-        "sol_base": 8.5, "sol_improve": 0.003, "lit_base": 0.35, "lit_improve": 0.0005,
-        "rev_base": 12000, "rev_growth": 0.004, "exp_base": 11000, "exp_growth": 0.004,
+        "gdp_base": 30000, "gdp_growth": 0.00025, "pop_base": 30000000, "pop_growth": 0.00004,
+        "sol_base": 8.5, "sol_improve": 0.00015, "lit_base": 0.35, "lit_improve": 0.000025,
+        "rev_base": 12000, "rev_growth": 0.0002, "exp_base": 11000, "exp_growth": 0.0002,
         "prestige_base": 30, "money": 160000,
         "techs": ["centralization"],
         "researching": "enclosure",
@@ -290,9 +290,9 @@ COUNTRIES = {
     },
     "QNG": {
         "name": "Qing China", "type": "unrecognized", "id": 13,
-        "gdp_base": 110000, "gdp_growth": 0.002, "pop_base": 350000000, "pop_growth": 0.0005,
-        "sol_base": 7.0, "sol_improve": 0.001, "lit_base": 0.08, "lit_improve": 0.0002,
-        "rev_base": 40000, "rev_growth": 0.002, "exp_base": 42000, "exp_growth": 0.003,
+        "gdp_base": 110000, "gdp_growth": 0.0001, "pop_base": 350000000, "pop_growth": 0.000025,
+        "sol_base": 7.0, "sol_improve": 0.00005, "lit_base": 0.08, "lit_improve": 0.00001,
+        "rev_base": 40000, "rev_growth": 0.0001, "exp_base": 42000, "exp_growth": 0.00015,
         "prestige_base": 120, "money": 300000,
         "techs": [],
         "researching": "centralization",
@@ -306,9 +306,9 @@ COUNTRIES = {
     },
     "BRZ": {
         "name": "Brazil", "type": "recognized", "id": 14,
-        "gdp_base": 18000, "gdp_growth": 0.006, "pop_base": 5000000, "pop_growth": 0.0015,
-        "sol_base": 8.5, "sol_improve": 0.003, "lit_base": 0.12, "lit_improve": 0.0004,
-        "rev_base": 7000, "rev_growth": 0.005, "exp_base": 6500, "exp_growth": 0.005,
+        "gdp_base": 18000, "gdp_growth": 0.0003, "pop_base": 5000000, "pop_growth": 0.000075,
+        "sol_base": 8.5, "sol_improve": 0.00015, "lit_base": 0.12, "lit_improve": 0.00002,
+        "rev_base": 7000, "rev_growth": 0.00025, "exp_base": 6500, "exp_growth": 0.00025,
         "prestige_base": 25, "money": 75000,
         "techs": ["enclosure", "centralization"],
         "researching": "manufacturies",
@@ -321,9 +321,9 @@ COUNTRIES = {
     },
     "MEX": {
         "name": "Mexico", "type": "recognized", "id": 15,
-        "gdp_base": 15000, "gdp_growth": 0.004, "pop_base": 7000000, "pop_growth": 0.0012,
-        "sol_base": 8.0, "sol_improve": 0.002, "lit_base": 0.10, "lit_improve": 0.0003,
-        "rev_base": 6000, "rev_growth": 0.003, "exp_base": 6500, "exp_growth": 0.004,
+        "gdp_base": 15000, "gdp_growth": 0.0002, "pop_base": 7000000, "pop_growth": 0.00006,
+        "sol_base": 8.0, "sol_improve": 0.0001, "lit_base": 0.10, "lit_improve": 0.000015,
+        "rev_base": 6000, "rev_growth": 0.00015, "exp_base": 6500, "exp_growth": 0.0002,
         "prestige_base": 20, "money": 55000,
         "techs": ["centralization"],
         "researching": "enclosure",
@@ -335,9 +335,9 @@ COUNTRIES = {
     },
     "EGY": {
         "name": "Egypt", "type": "unrecognized", "id": 16,
-        "gdp_base": 12000, "gdp_growth": 0.005, "pop_base": 5500000, "pop_growth": 0.001,
-        "sol_base": 7.5, "sol_improve": 0.003, "lit_base": 0.06, "lit_improve": 0.0003,
-        "rev_base": 5000, "rev_growth": 0.004, "exp_base": 4800, "exp_growth": 0.004,
+        "gdp_base": 12000, "gdp_growth": 0.00025, "pop_base": 5500000, "pop_growth": 0.00005,
+        "sol_base": 7.5, "sol_improve": 0.00015, "lit_base": 0.06, "lit_improve": 0.000015,
+        "rev_base": 5000, "rev_growth": 0.0002, "exp_base": 4800, "exp_growth": 0.0002,
         "prestige_base": 15, "money": 40000,
         "techs": [],
         "researching": "centralization",
@@ -349,9 +349,9 @@ COUNTRIES = {
     },
     "PER": {
         "name": "Persia", "type": "unrecognized", "id": 17,
-        "gdp_base": 10000, "gdp_growth": 0.003, "pop_base": 6000000, "pop_growth": 0.0008,
-        "sol_base": 7.0, "sol_improve": 0.002, "lit_base": 0.05, "lit_improve": 0.0002,
-        "rev_base": 4000, "rev_growth": 0.003, "exp_base": 3800, "exp_growth": 0.003,
+        "gdp_base": 10000, "gdp_growth": 0.00015, "pop_base": 6000000, "pop_growth": 0.00004,
+        "sol_base": 7.0, "sol_improve": 0.0001, "lit_base": 0.05, "lit_improve": 0.00001,
+        "rev_base": 4000, "rev_growth": 0.00015, "exp_base": 3800, "exp_growth": 0.00015,
         "prestige_base": 10, "money": 30000,
         "techs": [],
         "researching": "centralization",
@@ -366,7 +366,7 @@ COUNTRIES = {
 
 def generate_save(path):
     """Generate a synthetic V3 save file."""
-    meta = f'''date = "1841.3.15"
+    meta = f'''date = "1936.1.1"
 player = "GBR"
 save_game_version = 3
 playthrough_id = "synthetic_test_001"
@@ -472,7 +472,7 @@ playthrough_id = "synthetic_test_001"
                     price = {price}
                 }}''')
 
-    gamestate = f'''date = "1841.3.15"
+    gamestate = f'''date = "1936.1.1"
 player_manager = {{
     database = {{
         0 = {{
