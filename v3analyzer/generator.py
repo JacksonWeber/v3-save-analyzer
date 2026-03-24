@@ -40,8 +40,12 @@ def generate_dashboard(data: dict, output_path: str):
 
     comparison = data.get("comparison", [])
     comparison_charts = []
+    show_player_details = True
     if comparison:
         comparison_charts = _build_comparison_charts(comparison)
+        player_tag = data.get("meta", {}).get("player_tag", "")
+        player_in_comparison = any(c.get("tag") == player_tag for c in comparison)
+        show_player_details = not comparison_charts or player_in_comparison
 
     charts_json = json.dumps(charts)
     comparison_charts_json = json.dumps(comparison_charts)
@@ -57,6 +61,7 @@ def generate_dashboard(data: dict, output_path: str):
         charts_json=charts_json,
         comparison_charts=comparison_charts,
         comparison_charts_json=comparison_charts_json,
+        show_player_details=show_player_details,
         states=states,
         technology=technology,
         goods=goods,

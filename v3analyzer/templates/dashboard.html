@@ -156,6 +156,7 @@
     </header>
 
     <div class="container">
+        {% if show_player_details is not defined or show_player_details %}
         <!-- Summary Cards -->
         <div class="cards">
             {% for card in cards %}
@@ -165,6 +166,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
 
         <!-- Charts -->
         {% if comparison_charts %}
@@ -178,6 +180,7 @@
             {% endfor %}
         </div>
 
+        {% if show_player_details %}
         <h2>📈 {{ meta.country_name }} Details</h2>
         <div class="charts-grid">
             {% for chart in charts %}
@@ -187,6 +190,7 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
         {% else %}
         <h2>📈 Economic Trends</h2>
         <div class="charts-grid">
@@ -199,6 +203,7 @@
         </div>
         {% endif %}
 
+        {% if show_player_details is not defined or show_player_details %}
         {% if states %}
         <h2>🏛️ States</h2>
         <table>
@@ -257,6 +262,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% endif %}
         {% endif %}
     </div>
 
