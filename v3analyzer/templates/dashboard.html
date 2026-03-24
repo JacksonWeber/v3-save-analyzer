@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ meta.country_name }} — V3 Save Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-hierarchy@3"></script>
     <style>
         :root {
             --bg-primary: #1a1a2e;
@@ -137,69 +138,78 @@
             .cards { grid-template-columns: repeat(2, 1fr); }
         }
 
-        /* Territory Map */
-        .territory-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        .territory-card {
+        /* Territory Treemap */
+        .treemap-container {
             background: var(--bg-card);
-            border-radius: 10px;
-            padding: 16px;
-            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 24px;
+            position: relative;
         }
-        .territory-card.is-player {
-            border-color: var(--accent2);
-            box-shadow: 0 0 12px rgba(212, 168, 67, 0.15);
+        .treemap-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
         }
-        .territory-header {
+        .treemap-cell {
+            position: absolute;
+            overflow: hidden;
+            box-sizing: border-box;
+            border: 1px solid rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: opacity 0.15s;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 10px;
+            text-align: center;
+            padding: 2px;
         }
-        .territory-tag {
-            font-size: 1.1em;
+        .treemap-cell:hover { opacity: 0.85; }
+        .treemap-cell .cell-tag {
             font-weight: bold;
-            color: var(--text-primary);
+            font-size: 0.7em;
+            color: rgba(255,255,255,0.95);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            line-height: 1.1;
         }
-        .territory-card.is-player .territory-tag { color: #d4a843; }
-        .territory-stats {
+        .treemap-cell .cell-name {
+            font-size: 0.6em;
+            color: rgba(255,255,255,0.7);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+            line-height: 1.1;
+        }
+        .treemap-tooltip {
+            position: absolute;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.85em;
+            color: var(--text-primary);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 100;
+            white-space: nowrap;
+        }
+        .treemap-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
             font-size: 0.8em;
             color: var(--text-secondary);
         }
-        .territory-bar {
-            height: 8px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
-            margin-bottom: 10px;
-            overflow: hidden;
-        }
-        .territory-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            background: var(--accent2);
-        }
-        .territory-card.is-player .territory-bar-fill { background: #d4a843; }
-        .territory-states {
+        .treemap-legend-item {
             display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
+            align-items: center;
+            gap: 5px;
         }
-        .state-chip {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 3px 8px;
-            font-size: 0.75em;
-            color: var(--text-secondary);
-            cursor: default;
-        }
-        .state-chip:hover {
-            background: var(--bg-primary);
-            color: var(--text-primary);
+        .treemap-legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
         }
 
         footer {
@@ -234,34 +244,11 @@
         {% endif %}
 
         {% if territory_map and territory_map.countries %}
-        <h2>🗺️ Territories</h2>
-        <div class="territory-grid">
-            {% for country in territory_map.countries %}
-            <div class="territory-card{% if country.is_player %} is-player{% endif %}">
-                <div class="territory-header">
-                    <span class="territory-tag">
-                        {% if country.is_player %}★ {% endif %}{{ country.tag }}
-                    </span>
-                    <span class="territory-stats">
-                        {{ country.states | length }} states
-                    </span>
-                </div>
-                <div class="territory-bar">
-                    <div class="territory-bar-fill" style="width: {{ (country.total_pop / territory_map.countries[0].total_pop * 100) | round(1) }}%"></div>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: var(--text-secondary); margin-bottom: 8px;">
-                    <span>Pop: {{ "{:,.0f}".format(country.total_pop) }}</span>
-                    <span>GDP: {{ "{:,.0f}".format(country.total_gdp) }}</span>
-                </div>
-                <div class="territory-states">
-                    {% for state in country.states %}
-                    <span class="state-chip" title="Pop: {{ "{:,.0f}".format(state.population) }} · GDP: {{ "{:,.0f}".format(state.gdp) }}">
-                        {{ state.name }}
-                    </span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endfor %}
+        <h2>🗺️ Territory Map</h2>
+        <div class="treemap-container">
+            <div class="treemap-wrapper" id="treemap"></div>
+            <div class="treemap-tooltip" id="treemap-tooltip"></div>
+            <div class="treemap-legend" id="treemap-legend"></div>
         </div>
         {% endif %}
 
@@ -476,5 +463,132 @@
     chartConfigs.forEach((cfg, i) => renderChart('chart-' + (i + 1), cfg, singleColors, false));
     compChartConfigs.forEach((cfg, i) => renderChart('comp-chart-' + (i + 1), cfg, compColors, true));
     </script>
+
+    {% if territory_map and territory_map.countries %}
+    <script>
+    (function() {
+        var mapData = {{ territory_map_json|safe }};
+        var wrapper = document.getElementById('treemap');
+        var tooltip = document.getElementById('treemap-tooltip');
+        var legendEl = document.getElementById('treemap-legend');
+        if (!wrapper || !mapData.countries || !mapData.countries.length) return;
+
+        var W = wrapper.clientWidth;
+        var H = wrapper.clientHeight || 500;
+
+        // Country color palette
+        var palette = [
+            '#d4a843', '#e94560', '#53917e', '#508cdc', '#ff8833',
+            '#9b59b6', '#1abc9c', '#e67e22', '#3498db', '#e74c3c',
+            '#2ecc71', '#f39c12', '#8e44ad', '#16a085', '#c0392b',
+            '#27ae60', '#d35400', '#2980b9', '#7f8c8d', '#34495e'
+        ];
+
+        // Build hierarchical data for d3 treemap
+        var children = [];
+        mapData.countries.forEach(function(c) {
+            var stateChildren = c.states.map(function(s) {
+                return { name: s.name, value: Math.max(s.population, 1), gdp: s.gdp, infra: s.infrastructure, tag: c.tag, is_player: c.is_player };
+            });
+            children.push({ name: c.tag, children: stateChildren, is_player: c.is_player, total_pop: c.total_pop, total_gdp: c.total_gdp });
+        });
+
+        var root = d3.hierarchy({ name: 'world', children: children })
+            .sum(function(d) { return d.value || 0; })
+            .sort(function(a, b) { return b.value - a.value; });
+
+        d3.treemap()
+            .size([W, H])
+            .paddingOuter(3)
+            .paddingInner(1)
+            .paddingTop(18)
+            .round(true)(root);
+
+        // Assign colors to countries
+        var colorMap = {};
+        var playerTag = mapData.player_tag;
+        var ci = 1;
+        root.children.forEach(function(c) {
+            if (c.data.is_player) {
+                colorMap[c.data.name] = palette[0];
+            } else {
+                colorMap[c.data.name] = palette[ci % palette.length];
+                ci++;
+            }
+        });
+
+        function fmtNum(n) {
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+            return n.toLocaleString();
+        }
+
+        // Render country group labels
+        root.children.forEach(function(node) {
+            var el = document.createElement('div');
+            el.style.cssText = 'position:absolute;left:' + node.x0 + 'px;top:' + node.y0 + 'px;width:' + (node.x1 - node.x0) + 'px;height:' + (node.y1 - node.y0) + 'px;background:' + colorMap[node.data.name] + '22;border:2px solid ' + colorMap[node.data.name] + ';border-radius:4px;box-sizing:border-box;overflow:hidden;';
+            // Country label at top
+            var label = document.createElement('div');
+            label.style.cssText = 'position:absolute;top:1px;left:4px;font-size:0.7em;font-weight:bold;color:' + colorMap[node.data.name] + ';text-shadow:1px 1px 2px rgba(0,0,0,0.8);z-index:2;white-space:nowrap;';
+            label.textContent = (node.data.is_player ? '★ ' : '') + node.data.name + ' (' + fmtNum(node.data.total_pop) + ')';
+            el.appendChild(label);
+            wrapper.appendChild(el);
+        });
+
+        // Render state cells (leaves)
+        root.leaves().forEach(function(leaf) {
+            var d = leaf.data;
+            var w = leaf.x1 - leaf.x0;
+            var h = leaf.y1 - leaf.y0;
+            if (w < 2 || h < 2) return;
+
+            var baseColor = colorMap[d.tag] || '#555';
+            var el = document.createElement('div');
+            el.className = 'treemap-cell';
+            el.style.left = leaf.x0 + 'px';
+            el.style.top = leaf.y0 + 'px';
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+            el.style.background = baseColor;
+
+            if (w > 30 && h > 14) {
+                var nameEl = document.createElement('span');
+                nameEl.className = 'cell-name';
+                nameEl.textContent = d.name;
+                el.appendChild(nameEl);
+            }
+
+            el.addEventListener('mouseover', function(e) {
+                tooltip.innerHTML = '<strong>' + d.tag + ' — ' + d.name + '</strong><br>' +
+                    'Pop: ' + fmtNum(d.value) + ' · GDP: ' + fmtNum(d.gdp);
+                tooltip.style.opacity = '1';
+            });
+            el.addEventListener('mousemove', function(e) {
+                tooltip.style.left = (e.offsetX + 16) + 'px';
+                tooltip.style.top = (e.offsetY - 10) + 'px';
+            });
+            el.addEventListener('mouseout', function() {
+                tooltip.style.opacity = '0';
+            });
+
+            wrapper.appendChild(el);
+        });
+
+        // Build legend
+        root.children.forEach(function(node) {
+            var item = document.createElement('div');
+            item.className = 'treemap-legend-item';
+            var swatch = document.createElement('div');
+            swatch.className = 'treemap-legend-swatch';
+            swatch.style.background = colorMap[node.data.name];
+            var text = document.createElement('span');
+            text.textContent = (node.data.is_player ? '★ ' : '') + node.data.name + ' (' + node.children.length + ' states)';
+            item.appendChild(swatch);
+            item.appendChild(text);
+            legendEl.appendChild(item);
+        });
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>
