@@ -8,6 +8,24 @@ from jinja2 import Environment, FileSystemLoader
 
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
+GAME_START_YEAR = 1836
+WEEKS_PER_YEAR = 52
+
+
+def _week_to_year_labels(num_weeks: int) -> list:
+    """Convert week indices to in-game year labels (e.g. '1836', '1837.5')."""
+    labels = []
+    for i in range(num_weeks):
+        year = GAME_START_YEAR + i / WEEKS_PER_YEAR
+        if i % WEEKS_PER_YEAR == 0:
+            labels.append(str(int(year)))
+        elif i % (WEEKS_PER_YEAR // 4) == 0:
+            q = (i % WEEKS_PER_YEAR) // (WEEKS_PER_YEAR // 4)
+            month_names = ["", "Apr", "Jul", "Oct"]
+            labels.append(f"{month_names[q]} {int(year)}")
+        else:
+            labels.append("")
+    return labels
 
 
 def generate_dashboard(data: dict, output_path: str):
@@ -177,7 +195,7 @@ def _build_charts(timeseries: dict) -> list:
         rev = timeseries["revenue"]
         exp = timeseries["expenditure"]
         max_len = max(len(rev), len(exp))
-        labels = [f"W{i+1}" for i in range(max_len)]
+        labels = _week_to_year_labels(max_len)
         charts.append({
             "title": "Budget: Revenue vs Expenditure",
             "labels": labels,
@@ -190,7 +208,7 @@ def _build_charts(timeseries: dict) -> list:
     for cdef in chart_defs:
         if cdef["key"] in timeseries and len(timeseries[cdef["key"]]) > 1:
             data = timeseries[cdef["key"]]
-            labels = [f"W{i+1}" for i in range(len(data))]
+            labels = _week_to_year_labels(len(data))
             charts.append({
                 "title": cdef["title"],
                 "labels": labels,
@@ -241,7 +259,7 @@ def _build_comparison_charts(countries: list) -> list:
             max_len = max(max_len, len(data))
 
         if datasets:
-            labels = [f"W{i+1}" for i in range(max_len)]
+            labels = _week_to_year_labels(max_len)
             charts.append({
                 "title": title,
                 "labels": labels,

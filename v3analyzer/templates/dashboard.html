@@ -342,7 +342,19 @@
                     }
                 },
                 scales: {
-                    x: { display: true, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+                    x: {
+                        display: true,
+                        ticks: {
+                            maxTicksLimit: 12,
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: true,
+                            callback: function(val, index) {
+                                var label = this.getLabelForValue(index);
+                                return label || null;
+                            }
+                        }
+                    },
                     y: {
                         display: true,
                         ticks: {
