@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ meta.country_name }} — V3 Save Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
     <style>
         :root {
             --bg-primary: #1a1a2e;
@@ -137,6 +139,50 @@
             .cards { grid-template-columns: repeat(2, 1fr); }
         }
 
+        /* World Map */
+        .map-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .map-container svg {
+            width: 100%;
+            height: auto;
+        }
+        .map-tooltip {
+            position: absolute;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.85em;
+            color: var(--text-primary);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 100;
+        }
+        .map-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+            font-size: 0.85em;
+            color: var(--text-secondary);
+        }
+        .map-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-legend-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+
         footer {
             text-align: center;
             padding: 20px;
@@ -166,6 +212,28 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
+
+        {% if territory_map and territory_map.countries %}
+        <h2>🗺️ World Map</h2>
+        <div class="map-container">
+            <div id="world-map"></div>
+            <div class="map-legend">
+                <div class="map-legend-item">
+                    <div class="map-legend-swatch" style="background: #d4a843;"></div>
+                    <span>Player ({{ meta.player_tag }})</span>
+                </div>
+                <div class="map-legend-item">
+                    <div class="map-legend-swatch" style="background: #53917e;"></div>
+                    <span>Other Nations</span>
+                </div>
+                <div class="map-legend-item">
+                    <div class="map-legend-swatch" style="background: #1a1a2e;"></div>
+                    <span>Unclaimed / Unknown</span>
+                </div>
+            </div>
+        </div>
+        <div class="map-tooltip" id="map-tooltip"></div>
         {% endif %}
 
         <!-- Charts -->
@@ -379,5 +447,83 @@
     chartConfigs.forEach((cfg, i) => renderChart('chart-' + (i + 1), cfg, singleColors, false));
     compChartConfigs.forEach((cfg, i) => renderChart('comp-chart-' + (i + 1), cfg, compColors, true));
     </script>
+
+    {% if territory_map and territory_map.countries %}
+    <script>
+    (function() {
+        const mapData = {{ territory_map_json|safe }};
+        const container = document.getElementById('world-map');
+        if (!container || !mapData.countries) return;
+
+        const width = container.clientWidth || 960;
+        const height = Math.round(width * 0.5);
+
+        const svg = d3.select('#world-map')
+            .append('svg')
+            .attr('viewBox', `0 0 ${width} ${height}`)
+            .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        const projection = d3.geoNaturalEarth1()
+            .scale(width / 5.5)
+            .translate([width / 2, height / 2]);
+
+        const path = d3.geoPath().projection(projection);
+
+        const tooltip = document.getElementById('map-tooltip');
+
+        const playerColor = '#d4a843';
+        const otherColor = '#53917e';
+        const unknownColor = '#1a1a2e';
+        const borderColor = '#2a2a4a';
+
+        function fmtPop(n) {
+            if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+            if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+            return n.toString();
+        }
+
+        d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(function(world) {
+            const countries = topojson.feature(world, world.objects.countries).features;
+
+            svg.selectAll('path')
+                .data(countries)
+                .join('path')
+                .attr('d', path)
+                .attr('fill', function(d) {
+                    var info = mapData.countries[d.id];
+                    if (!info) return unknownColor;
+                    return info.is_player ? playerColor : otherColor;
+                })
+                .attr('stroke', borderColor)
+                .attr('stroke-width', 0.5)
+                .on('mouseover', function(event, d) {
+                    var info = mapData.countries[d.id];
+                    if (info) {
+                        tooltip.innerHTML = '<strong>' + info.tag + '</strong><br>' +
+                            info.states + ' states · Pop: ' + fmtPop(info.population);
+                        tooltip.style.opacity = '1';
+                        d3.select(this).attr('stroke', '#fff').attr('stroke-width', 1.5);
+                    }
+                })
+                .on('mousemove', function(event) {
+                    tooltip.style.left = (event.pageX + 12) + 'px';
+                    tooltip.style.top = (event.pageY - 28) + 'px';
+                })
+                .on('mouseout', function() {
+                    tooltip.style.opacity = '0';
+                    d3.select(this).attr('stroke', borderColor).attr('stroke-width', 0.5);
+                });
+
+            // Draw borders between countries
+            svg.append('path')
+                .datum(topojson.mesh(world, world.objects.countries, function(a, b) { return a !== b; }))
+                .attr('d', path)
+                .attr('fill', 'none')
+                .attr('stroke', borderColor)
+                .attr('stroke-width', 0.5);
+        });
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

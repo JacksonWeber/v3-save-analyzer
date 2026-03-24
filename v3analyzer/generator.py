@@ -53,6 +53,8 @@ def generate_dashboard(data: dict, output_path: str):
     states = _format_states(data.get("states", []))
     technology = data.get("technology", {"acquired": [], "researching": ""})
     goods = data.get("goods", [])
+    territory_map = data.get("territory_map", {})
+    territory_map_json = json.dumps(territory_map)
 
     html = template.render(
         meta=data.get("meta", {}),
@@ -65,6 +67,8 @@ def generate_dashboard(data: dict, output_path: str):
         states=states,
         technology=technology,
         goods=goods,
+        territory_map=territory_map,
+        territory_map_json=territory_map_json,
     )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
