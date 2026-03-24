@@ -756,6 +756,41 @@ COUNTRIES = {
             ("state_brunswick", 360000, 4680, 14),
         ],
     },
+    "HUN": {
+        "name": "Hungary", "type": "recognized", "id": 23,
+        "overlord": 3,  # Subject of AUS (Austria)
+        "gdp_base": 18000, "gdp_growth": 0.00025, "pop_base": 11000000, "pop_growth": 0.00005,
+        "sol_base": 8.0, "sol_improve": 0.00015, "lit_base": 0.15, "lit_improve": 0.00002,
+        "rev_base": 7000, "rev_growth": 0.0002, "exp_base": 6500, "exp_growth": 0.0002,
+        "prestige_base": 35, "money": 65000,
+        "techs": ["enclosure", "centralization"],
+        "researching": "manufacturies",
+        "army": 80, "navy": 5,
+        "states": [
+            ("state_central_hungary", 2200000, 22000, 14),
+            ("state_transdanubia", 1870000, 15896, 12),
+            ("state_slovakia", 1650000, 11550, 9),
+            ("state_banat", 990000, 5940, 7),
+            ("state_southern_transylvania", 1100000, 5500, 6),
+            ("state_northern_transylvania", 880000, 3520, 5),
+            ("state_alfold", 1430000, 8580, 8),
+        ],
+    },
+    "CRO": {
+        "name": "Croatia", "type": "recognized", "id": 24,
+        "overlord": 3,  # Subject of AUS (Austria)
+        "gdp_base": 4000, "gdp_growth": 0.0002, "pop_base": 1600000, "pop_growth": 0.00003,
+        "sol_base": 7.5, "sol_improve": 0.00012, "lit_base": 0.12, "lit_improve": 0.000015,
+        "rev_base": 1600, "rev_growth": 0.00018, "exp_base": 1500, "exp_growth": 0.00018,
+        "prestige_base": 10, "money": 15000,
+        "techs": ["centralization"],
+        "researching": "enclosure",
+        "army": 15, "navy": 3,
+        "states": [
+            ("state_croatia", 960000, 7680, 9),
+            ("state_slavonia", 640000, 3840, 6),
+        ],
+    },
 }
 
 
