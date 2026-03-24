@@ -39,18 +39,63 @@ def extract_all(gamestate: dict, meta: dict, compare_countries: bool = False) ->
 
     if compare_countries:
         result["comparison"] = _extract_all_countries(
-            gamestate, player_id
+            gamestate, player_id, selected_tags=compare_countries
         )
 
     return result
 
 
-def _extract_all_countries(gamestate: dict, player_id: int) -> list:
-    """Extract timeseries for all countries that have history data."""
+def list_countries(gamestate: dict, meta: dict) -> list:
+    """Return a list of all countries with history data (tag, name, is_player, final GDP)."""
+    player_tag = _get_player_tag(meta, gamestate)
+    player_id = _find_country_id(gamestate, player_tag)
+    countries_db = _get_countries_db(gamestate)
+
+    country_history = gamestate.get("country_history", {})
+    if isinstance(country_history, dict) and "database" in country_history:
+        country_history = country_history["database"]
+
+    results = []
+    if not isinstance(country_history, dict):
+        return results
+
+    for cid_key, history in country_history.items():
+        if not isinstance(history, dict):
+            continue
+        # Quick check: does this country have GDP data?
+        gdp_data = history.get("weekly_gdp", history.get("gdp", []))
+        if not isinstance(gdp_data, list) or len(gdp_data) < 2:
+            continue
+
+        country_data = countries_db.get(cid_key, {})
+        tag = str(country_data.get("definition", cid_key))
+        name = _get_country_name(country_data, tag)
+        is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+        final_gdp = gdp_data[-1] if gdp_data else 0
+
+        results.append({
+            "tag": tag,
+            "name": name,
+            "is_player": is_player,
+            "final_gdp": float(final_gdp) if isinstance(final_gdp, (int, float)) else 0,
+        })
+
+    results.sort(key=lambda c: (not c["is_player"], -c["final_gdp"]))
+    return results
+
+
+def _extract_all_countries(gamestate: dict, player_id: int, selected_tags=None) -> list:
+    """Extract timeseries for all countries that have history data.
+    If selected_tags is a list of tag strings, only include those countries."""
     countries_db = _get_countries_db(gamestate)
     country_history = gamestate.get("country_history", {})
     if isinstance(country_history, dict) and "database" in country_history:
         country_history = country_history["database"]
+
+    # Build tag filter set
+    tag_filter = None
+    if isinstance(selected_tags, (list, set)) and selected_tags:
+        tag_filter = set(str(t) for t in selected_tags)
 
     countries = []
     if not isinstance(country_history, dict):
@@ -59,12 +104,17 @@ def _extract_all_countries(gamestate: dict, player_id: int) -> list:
     for cid_key, history in country_history.items():
         if not isinstance(history, dict):
             continue
+
+        country_data = countries_db.get(cid_key, {})
+        tag = str(country_data.get("definition", cid_key))
+
+        if tag_filter and tag not in tag_filter:
+            continue
+
         ts = _extract_timeseries(history)
         if not ts or "gdp" not in ts:
             continue
 
-        country_data = countries_db.get(cid_key, {})
-        tag = str(country_data.get("definition", cid_key))
         name = _get_country_name(country_data, tag)
         is_player = (cid_key == player_id or str(cid_key) == str(player_id))
 

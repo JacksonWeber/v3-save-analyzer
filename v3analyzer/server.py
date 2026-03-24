@@ -1,9 +1,11 @@
 """
 Web server with file upload UI for the V3 Save Analyzer.
 Serves an upload page, processes uploaded .v3 saves, and displays the dashboard.
+
+Flow: Upload .v3 → Select countries to compare → View dashboard
 """
 import http.server
-import cgi
+import json
 import os
 import sys
 import tempfile
@@ -12,11 +14,13 @@ import urllib.parse
 
 from .loader import load_save
 from .parser import parse_pdx
-from .extractor import extract_all
+from .extractor import extract_all, list_countries
 from .generator import generate_dashboard
 
 OUTPUT_DIR = None
-LAST_DASHBOARD = None
+# Cached parsed data between the select and generate steps
+_CACHED_GAMESTATE = None
+_CACHED_META = None
 
 UPLOAD_PAGE = '''<!DOCTYPE html>
 <html lang="en">
@@ -131,22 +135,6 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
             display: none;
         }
         .error.active { display: block; }
-        .compare-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin: 16px 0;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 0.95em;
-        }
-        .compare-toggle input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--gold);
-            cursor: pointer;
-        }
         .hint {
             color: var(--text-secondary);
             font-size: 0.8em;
@@ -173,11 +161,7 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
                 <div class="text">Drop your <strong>.v3 save file</strong> here<br>or click to browse</div>
             </div>
             <div class="file-name" id="fileName"></div>
-            <label class="compare-toggle">
-                <input type="checkbox" name="compare" id="compareCheck" checked>
-                <span>Compare all countries on charts</span>
-            </label>
-            <button type="submit" id="submitBtn" disabled>Analyze Save</button>
+            <button type="submit" id="submitBtn" disabled>Upload &amp; Analyze</button>
         </form>
 
         <div class="loading" id="loading">
@@ -249,6 +233,280 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
 </html>'''
 
 
+SELECT_PAGE = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Countries — V3 Save Analyzer</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-card: #0f3460;
+            --accent: #e94560;
+            --accent2: #53917e;
+            --text-primary: #eee;
+            --text-secondary: #a0a0b0;
+            --gold: #d4a843;
+            --border: #2a2a4a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .select-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 36px 48px;
+            max-width: 650px;
+            width: 90%;
+        }
+        h1 { color: var(--gold); font-size: 1.6em; margin-bottom: 4px; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9em; }
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .controls button {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .controls button:hover { border-color: var(--gold); color: var(--text-primary); }
+        .search-box {
+            flex: 1;
+            min-width: 150px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: var(--text-primary);
+            font-size: 0.9em;
+        }
+        .search-box:focus { outline: none; border-color: var(--gold); }
+        .country-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .country-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .country-item:last-child { border-bottom: none; }
+        .country-item:hover { background: rgba(212, 168, 67, 0.05); }
+        .country-item.selected { background: rgba(212, 168, 67, 0.1); }
+        .country-item input[type="checkbox"] {
+            width: 16px; height: 16px;
+            accent-color: var(--gold);
+            margin-right: 12px;
+            cursor: pointer;
+        }
+        .country-tag {
+            font-weight: bold;
+            color: var(--gold);
+            width: 50px;
+            flex-shrink: 0;
+        }
+        .country-name {
+            flex: 1;
+            color: var(--text-primary);
+        }
+        .country-gdp {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            font-variant-numeric: tabular-nums;
+        }
+        .player-badge {
+            background: var(--accent);
+            color: white;
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        .count {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            margin-bottom: 16px;
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1.05em;
+            cursor: pointer;
+            font-weight: bold;
+            flex: 1;
+        }
+        .btn-primary:hover { background: #c73a52; }
+        .btn-primary:disabled { background: var(--border); cursor: not-allowed; }
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1.05em;
+            cursor: pointer;
+        }
+        .btn-secondary:hover { border-color: var(--gold); }
+        .loading { display: none; text-align: center; margin-top: 16px; }
+        .loading.active { display: block; }
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--gold);
+            border-radius: 50%;
+            width: 30px; height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .country-list::-webkit-scrollbar { width: 8px; }
+        .country-list::-webkit-scrollbar-track { background: var(--bg-card); }
+        .country-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="select-container">
+        <h1>Select Countries to Compare</h1>
+        <p class="subtitle">Your country is pre-selected. Pick others to compare against.</p>
+
+        <div class="controls">
+            <input type="text" class="search-box" id="search" placeholder="Search countries...">
+            <button onclick="selectAll()">Select All</button>
+            <button onclick="selectNone()">Clear All</button>
+            <button onclick="selectTop(10)">Top 10</button>
+        </div>
+
+        <div class="count" id="countLabel">0 selected</div>
+        <div class="country-list" id="countryList"></div>
+
+        <div class="actions">
+            <button class="btn-secondary" onclick="window.location='/'">← Back</button>
+            <button class="btn-primary" id="generateBtn" onclick="generate()">Generate Dashboard</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Generating dashboard...</div>
+        </div>
+    </div>
+
+    <script>
+    const countries = __COUNTRIES_JSON__;
+
+    const listEl = document.getElementById('countryList');
+    const countEl = document.getElementById('countLabel');
+    const searchEl = document.getElementById('search');
+
+    function render(filter) {
+        filter = (filter || '').toLowerCase();
+        listEl.innerHTML = '';
+        countries.forEach((c, i) => {
+            if (filter && !c.tag.toLowerCase().includes(filter) && !c.name.toLowerCase().includes(filter)) return;
+            const div = document.createElement('div');
+            div.className = 'country-item' + (c._selected ? ' selected' : '');
+            const gdp = formatNum(c.final_gdp);
+            div.innerHTML = `
+                <input type="checkbox" ${c._selected ? 'checked' : ''} data-idx="${i}">
+                <span class="country-tag">${esc(c.tag)}</span>
+                <span class="country-name">${esc(c.name)}${c.is_player ? '<span class=\\"player-badge\\">PLAYER</span>' : ''}</span>
+                <span class="country-gdp">GDP: ${gdp}</span>
+            `;
+            div.addEventListener('click', (e) => {
+                if (e.target.type === 'checkbox') return;
+                c._selected = !c._selected;
+                render(searchEl.value);
+            });
+            div.querySelector('input').addEventListener('change', (e) => {
+                c._selected = e.target.checked;
+                updateCount();
+                div.classList.toggle('selected', c._selected);
+            });
+            listEl.appendChild(div);
+        });
+        updateCount();
+    }
+
+    function updateCount() {
+        const n = countries.filter(c => c._selected).length;
+        countEl.textContent = n + ' selected';
+    }
+
+    function selectAll() { countries.forEach(c => c._selected = true); render(searchEl.value); }
+    function selectNone() { countries.forEach(c => c._selected = false); render(searchEl.value); }
+    function selectTop(n) {
+        countries.forEach((c, i) => c._selected = i < n);
+        render(searchEl.value);
+    }
+
+    function formatNum(n) {
+        if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+        return Math.round(n).toString();
+    }
+
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function generate() {
+        const tags = countries.filter(c => c._selected).map(c => c.tag);
+        document.getElementById('loading').classList.add('active');
+        document.getElementById('generateBtn').disabled = true;
+
+        fetch('/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags }),
+        })
+        .then(r => r.json())
+        .then(data => { window.location.href = data.redirect; })
+        .catch(err => {
+            alert('Error: ' + err.message);
+            document.getElementById('loading').classList.remove('active');
+            document.getElementById('generateBtn').disabled = false;
+        });
+    }
+
+    searchEl.addEventListener('input', () => render(searchEl.value));
+
+    // Pre-select player country
+    countries.forEach(c => { c._selected = c.is_player; });
+    render();
+    </script>
+</body>
+</html>'''
+
+
 class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
     """HTTP handler with upload support."""
 
@@ -259,8 +517,9 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "/upload":
             self._serve_upload_page()
+        elif self.path.startswith("/select"):
+            self._serve_select_page()
         elif self.path == "/dashboard" or self.path == "/dashboard/":
-            # Serve the generated dashboard
             dashboard_path = os.path.join(self.output_dir, "index.html")
             if os.path.exists(dashboard_path):
                 self.send_response(200)
@@ -278,6 +537,8 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/upload":
             self._handle_upload()
+        elif self.path == "/generate":
+            self._handle_generate()
         else:
             self.send_error(404)
 
@@ -288,24 +549,23 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(UPLOAD_PAGE.encode("utf-8"))
 
     def _handle_upload(self):
+        """Step 1: Upload save → parse → cache data → redirect to /select."""
+        global _CACHED_GAMESTATE, _CACHED_META
         content_type = self.headers.get("Content-Type", "")
         if "multipart/form-data" not in content_type:
             self._send_error_text(400, "Expected multipart/form-data")
             return
 
-        # Parse multipart form data
         boundary = content_type.split("boundary=")[-1].encode()
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length)
 
-        # Extract file and form fields
         file_data = self._extract_file(body, boundary)
-        compare = self._extract_field(body, boundary, "compare")
         if file_data is None:
             self._send_error_text(400, "No file uploaded")
             return
 
-        # Save to temp file and process
+        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".v3", delete=False) as tmp:
                 tmp.write(file_data)
@@ -317,52 +577,91 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 meta_parsed = parse_pdx(raw["meta"])
 
             gamestate = parse_pdx(raw["gamestate"])
-            data = extract_all(gamestate, meta_parsed, compare_countries=bool(compare))
 
-            output_path = os.path.join(self.output_dir, "index.html")
-            generate_dashboard(data, output_path)
+            # Cache parsed data for the generate step
+            _CACHED_GAMESTATE = gamestate
+            _CACHED_META = meta_parsed
 
-            # Redirect to dashboard
+            # Redirect to country selection
             self.send_response(302)
-            self.send_header("Location", "/dashboard")
+            self.send_header("Location", "/select")
             self.end_headers()
 
         except Exception as e:
             traceback.print_exc()
             self._send_error_text(500, str(e))
         finally:
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+    def _serve_select_page(self):
+        """Step 2: Show country selection page."""
+        global _CACHED_GAMESTATE, _CACHED_META
+        if _CACHED_GAMESTATE is None:
+            self.send_response(302)
+            self.send_header("Location", "/")
+            self.end_headers()
+            return
+
+        countries = list_countries(_CACHED_GAMESTATE, _CACHED_META or {})
+        countries_json = json.dumps(countries)
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        html = SELECT_PAGE.replace("__COUNTRIES_JSON__", countries_json)
+        self.wfile.write(html.encode("utf-8"))
+
+    def _handle_generate(self):
+        """Step 3: Generate dashboard with selected countries."""
+        global _CACHED_GAMESTATE, _CACHED_META
+        if _CACHED_GAMESTATE is None:
+            self._send_error_text(400, "No save data cached. Please upload a save first.")
+            return
+
+        content_type = self.headers.get("Content-Type", "")
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+
+        # Parse the selected tags from the POST body (JSON)
+        try:
+            payload = json.loads(body.decode("utf-8"))
+            selected_tags = payload.get("tags", [])
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self._send_error_text(400, "Invalid request body")
+            return
+
+        try:
+            compare = selected_tags if selected_tags else False
+            data = extract_all(
+                _CACHED_GAMESTATE, _CACHED_META or {},
+                compare_countries=compare,
+            )
+
+            output_path = os.path.join(self.output_dir, "index.html")
+            generate_dashboard(data, output_path)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"redirect": "/dashboard"}).encode())
+
+        except Exception as e:
+            traceback.print_exc()
+            self._send_error_text(500, str(e))
 
     def _extract_file(self, body, boundary):
         """Extract file content from multipart form data."""
         parts = body.split(b"--" + boundary)
         for part in parts:
             if b"filename=" in part and b"name=\"savefile\"" in part:
-                # Split headers from body at double CRLF
                 header_end = part.find(b"\r\n\r\n")
                 if header_end == -1:
                     continue
                 file_content = part[header_end + 4:]
-                # Remove trailing \r\n--
                 if file_content.endswith(b"\r\n"):
                     file_content = file_content[:-2]
                 return file_content
-        return None
-
-    def _extract_field(self, body, boundary, field_name):
-        """Extract a non-file form field value from multipart data."""
-        parts = body.split(b"--" + boundary)
-        target = f'name="{field_name}"'.encode()
-        for part in parts:
-            if target in part and b"filename=" not in part:
-                header_end = part.find(b"\r\n\r\n")
-                if header_end == -1:
-                    continue
-                value = part[header_end + 4:]
-                if value.endswith(b"\r\n"):
-                    value = value[:-2]
-                return value.decode("utf-8", errors="replace").strip()
         return None
 
     def _send_error_text(self, code, message):
@@ -372,7 +671,6 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(message.encode("utf-8"))
 
     def log_message(self, format, *args):
-        # Cleaner logging
         sys.stderr.write(f"[v3analyzer] {args[0]}\n")
 
 
