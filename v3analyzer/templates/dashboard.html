@@ -243,7 +243,12 @@
         </div>
         {% endif %}
 
-        {% if territory_map and territory_map.countries %}
+        {% if map_svg %}
+        <h2>🗺️ World Map</h2>
+        <div style="background:#0d1117;border-radius:12px;padding:8px;margin-bottom:24px;overflow:hidden;">
+            {{ map_svg|safe }}
+        </div>
+        {% elif territory_map and territory_map.countries %}
         <h2>🗺️ Territory Map</h2>
         <div class="treemap-container">
             <div class="treemap-wrapper" id="treemap"></div>

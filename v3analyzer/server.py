@@ -17,6 +17,61 @@ from .parser import parse_pdx
 from .extractor import extract_all, list_countries
 from .generator import generate_dashboard
 
+# Try to find Victoria 3 game install for map generation
+_GAME_DIR = None
+_MAP_CACHE = None  # cached state_rects + dimensions
+
+def _find_game_dir():
+    """Auto-detect Victoria 3 install directory."""
+    import platform
+    candidates = []
+    home = os.path.expanduser("~")
+    if platform.system() == "Darwin":
+        candidates.append(os.path.join(home, "Library/Application Support/Steam/steamapps/common/Victoria 3"))
+    elif platform.system() == "Windows":
+        for drive in ["C:", "D:", "E:"]:
+            candidates.append(os.path.join(drive, "\\Program Files (x86)\\Steam\\steamapps\\common\\Victoria 3"))
+            candidates.append(os.path.join(drive, "\\Program Files\\Steam\\steamapps\\common\\Victoria 3"))
+    else:  # Linux
+        candidates.append(os.path.join(home, ".steam/steam/steamapps/common/Victoria 3"))
+        candidates.append(os.path.join(home, ".local/share/Steam/steamapps/common/Victoria 3"))
+
+    for d in candidates:
+        if os.path.isfile(os.path.join(d, "game", "map_data", "provinces.png")):
+            return d
+    return None
+
+
+def _get_map_cache():
+    """Get or build cached map data from game files."""
+    global _MAP_CACHE, _GAME_DIR
+    if _MAP_CACHE is not None:
+        return _MAP_CACHE
+
+    if _GAME_DIR is None:
+        _GAME_DIR = _find_game_dir()
+    if _GAME_DIR is None:
+        return None
+
+    try:
+        from .mapgen import parse_state_regions, scan_provinces_png, build_state_rects, SCALE
+        from PIL import Image
+
+        print("[v3analyzer] Building map from game files (one-time)...")
+        prov_to_state, _ = parse_state_regions(_GAME_DIR)
+        state_bounds = scan_provinces_png(_GAME_DIR, prov_to_state)
+        state_rects = build_state_rects(state_bounds, SCALE)
+
+        img = Image.open(os.path.join(_GAME_DIR, "game", "map_data", "provinces.png"))
+        sw, sh = round(img.size[0] * SCALE), round(img.size[1] * SCALE)
+
+        _MAP_CACHE = {"state_rects": state_rects, "width": sw, "height": sh}
+        print(f"[v3analyzer] Map ready: {len(state_rects)} states, {sw}x{sh}")
+        return _MAP_CACHE
+    except Exception as e:
+        print(f"[v3analyzer] Map generation failed: {e}")
+        return None
+
 OUTPUT_DIR = None
 # Cached parsed data between the select and generate steps
 _CACHED_GAMESTATE = None
@@ -638,8 +693,20 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 compare_countries=compare,
             )
 
+            # Generate map SVG if game files available
+            map_svg = ""
+            map_cache = _get_map_cache()
+            if map_cache and data.get("territory_map"):
+                from .mapgen import generate_map_svg, build_ownership_from_save
+                ownership = build_ownership_from_save(data["territory_map"])
+                player_tag = data.get("meta", {}).get("player_tag", "")
+                map_svg = generate_map_svg(
+                    map_cache["state_rects"], ownership, player_tag,
+                    map_cache["width"], map_cache["height"]
+                )
+
             output_path = os.path.join(self.output_dir, "index.html")
-            generate_dashboard(data, output_path)
+            generate_dashboard(data, output_path, map_svg=map_svg)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

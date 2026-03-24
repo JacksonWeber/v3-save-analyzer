@@ -30,7 +30,7 @@ def _week_to_year_labels(num_weeks: int) -> list:
     return labels
 
 
-def generate_dashboard(data: dict, output_path: str):
+def generate_dashboard(data: dict, output_path: str, map_svg: str = ""):
     """Generate an HTML dashboard from extracted save data."""
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=True)
     template = env.get_template("dashboard.html")
@@ -69,6 +69,7 @@ def generate_dashboard(data: dict, output_path: str):
         goods=goods,
         territory_map=territory_map,
         territory_map_json=territory_map_json,
+        map_svg=map_svg,
     )
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
