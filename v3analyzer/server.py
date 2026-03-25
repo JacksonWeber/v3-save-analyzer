@@ -77,6 +77,46 @@ OUTPUT_DIR = None
 _CACHED_GAMESTATE = None
 _CACHED_META = None
 
+LANDING_PAGE = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V3 Save Analyzer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        h1 { font-size: 2.4rem; margin-bottom: 0.3rem; color: #d4a843; }
+        .subtitle { color: #8b949e; margin-bottom: 2.5rem; font-size: 1.1rem; }
+        .cards { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; padding: 0 1rem; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 2.5rem 2rem; width: 340px; text-decoration: none; color: #e6edf3; transition: transform 0.2s, border-color 0.3s, box-shadow 0.3s; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .card:hover { transform: translateY(-6px); border-color: #d4a843; box-shadow: 0 8px 30px rgba(212,168,67,0.15); }
+        .card-icon { font-size: 3rem; margin-bottom: 1rem; }
+        .card h2 { font-size: 1.4rem; margin-bottom: 0.5rem; color: #d4a843; }
+        .card p { color: #8b949e; font-size: 0.95rem; line-height: 1.5; }
+        .footer { margin-top: 3rem; color: #484f58; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <h1>Victoria 3 Tools</h1>
+    <p class="subtitle">Choose a tool to get started</p>
+    <div class="cards">
+        <a href="/upload" class="card">
+            <div class="card-icon">&#128202;</div>
+            <h2>Save Game Analyzer</h2>
+            <p>Upload a .v3 save file and explore a detailed dashboard of your nation&#39;s economy, military, politics, and more. Compare multiple countries side-by-side.</p>
+        </a>
+        <a href="/army" class="card">
+            <div class="card-icon">&#9876;&#65039;</div>
+            <h2>Army Composition Optimizer</h2>
+            <p>Plan the perfect army. Select your technologies, general traits, and orders to see real-time stat calculations and optimal battalion compositions.</p>
+        </a>
+    </div>
+    <p class="footer">V3 Save Analyzer</p>
+</body>
+</html>'''
+
+
 UPLOAD_PAGE = '''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -562,6 +602,555 @@ SELECT_PAGE = '''<!DOCTYPE html>
 </html>'''
 
 
+ARMY_PAGE = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Army Composition Optimizer - V3 Tools</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0d1117;color:#e6edf3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;line-height:1.5;}
+a{color:#d4a843;text-decoration:none;}
+a:hover{text-decoration:underline;}
+header{background:#161b22;border-bottom:1px solid #30363d;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+header h1{font-size:1.4rem;color:#d4a843;}
+.container{max-width:1400px;margin:0 auto;padding:1.5rem;}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:1.5rem;}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+.panel{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1.2rem;}
+.panel h2{font-size:1.1rem;color:#d4a843;margin-bottom:0.8rem;border-bottom:1px solid #30363d;padding-bottom:0.5rem;}
+.panel h3{font-size:0.95rem;color:#8b949e;margin:0.8rem 0 0.4rem;}
+label{display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:2px 0;font-size:0.9rem;}
+label:hover{color:#d4a843;}
+input[type=checkbox],input[type=radio]{accent-color:#d4a843;}
+select{background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;padding:0.4rem;font-size:0.9rem;width:100%;}
+select:focus{border-color:#d4a843;outline:none;}
+.era-group{margin-bottom:0.6rem;}
+.era-label{font-size:0.8rem;color:#d4a843;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.2rem;}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+th{text-align:left;padding:0.5rem 0.4rem;border-bottom:2px solid #30363d;color:#d4a843;font-weight:600;position:sticky;top:0;background:#161b22;}
+td{padding:0.4rem;border-bottom:1px solid #21262d;}
+tr:hover td{background:#1c2128;}
+.group-infantry{border-left:3px solid #3fb950;}
+.group-artillery{border-left:3px solid #f0883e;}
+.group-cavalry{border-left:3px solid #58a6ff;}
+.stat-off{color:#f0883e;}
+.stat-def{color:#58a6ff;}
+.stat-mor{color:#bc8cff;}
+.stat-kill{color:#f85149;}
+input[type=number]{background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:4px;padding:0.25rem 0.4rem;width:60px;text-align:center;font-size:0.85rem;}
+input[type=number]:focus{border-color:#d4a843;outline:none;}
+.totals-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-top:1rem;}
+.total-card{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:0.8rem;text-align:center;}
+.total-card .val{font-size:1.5rem;font-weight:700;}
+.total-card .lbl{font-size:0.75rem;color:#8b949e;text-transform:uppercase;}
+.warning{background:#f8514922;border:1px solid #f85149;color:#f85149;padding:0.5rem 0.8rem;border-radius:6px;margin-top:0.8rem;font-size:0.85rem;}
+.rec-section{margin-top:1.5rem;}
+.rec-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem;margin-top:0.8rem;}
+.rec-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:1rem;}
+.rec-card h3{color:#d4a843;margin-bottom:0.5rem;font-size:1rem;}
+.rec-card .rec-score{font-size:0.8rem;color:#8b949e;margin-bottom:0.5rem;}
+.rec-card ul{list-style:none;padding:0;}
+.rec-card li{padding:0.15rem 0;font-size:0.85rem;}
+.rec-card li span{color:#d4a843;font-weight:600;}
+.trait-cat{margin-bottom:0.5rem;}
+.trait-cat summary{cursor:pointer;font-size:0.9rem;color:#8b949e;padding:0.2rem 0;}
+.trait-cat summary:hover{color:#d4a843;}
+.trait-list{padding-left:0.2rem;max-height:200px;overflow-y:auto;}
+.config-row{display:flex;gap:1rem;align-items:center;margin-bottom:0.5rem;}
+.config-row label{font-size:0.9rem;white-space:nowrap;}
+.btn-apply{background:#d4a843;color:#0d1117;border:none;padding:0.4rem 1rem;border-radius:6px;cursor:pointer;font-weight:600;font-size:0.85rem;margin-left:0.5rem;}
+.btn-apply:hover{background:#e0b84f;}
+</style>
+</head>
+<body>
+<header>
+    <h1>&#9876;&#65039; Army Composition Optimizer</h1>
+    <a href="/">&#8592; Back to Home</a>
+</header>
+<div class="container">
+<div class="grid">
+<!-- LEFT PANEL: CONFIG -->
+<div>
+    <div class="panel" id="techPanel">
+        <h2>Technologies</h2>
+        <div id="techChecks"></div>
+    </div>
+    <div class="panel" style="margin-top:1rem;">
+        <h2>General Traits</h2>
+        <div id="traitChecks"></div>
+    </div>
+    <div class="panel" style="margin-top:1rem;">
+        <h2>Orders &amp; Veterancy</h2>
+        <h3>Order</h3>
+        <div id="orderRadios"></div>
+        <h3>Veterancy</h3>
+        <select id="vetSelect"></select>
+    </div>
+    <div class="panel" style="margin-top:1rem;">
+        <h2>Optimizer Settings</h2>
+        <div class="config-row">
+            <label for="totalBn">Total Battalions:</label>
+            <input type="number" id="totalBn" value="20" min="1" max="100">
+        </div>
+        <button class="btn-apply" onclick="recalc()">Update</button>
+    </div>
+</div>
+<!-- RIGHT PANEL: RESULTS -->
+<div>
+    <div class="panel">
+        <h2>Unit Stats (Effective)</h2>
+        <div style="overflow-x:auto;">
+        <table id="unitTable">
+            <thead>
+                <tr><th>Unit</th><th>Group</th><th>Off</th><th>Def</th><th>Morale Loss</th><th>Kill Rate</th><th>Upkeep</th></tr>
+            </thead>
+            <tbody id="unitBody"></tbody>
+        </table>
+        </div>
+    </div>
+    <div class="panel" style="margin-top:1rem;">
+        <h2>Army Builder</h2>
+        <table id="armyTable">
+            <thead>
+                <tr><th>Unit</th><th>Battalions</th><th>Total Off</th><th>Total Def</th><th>Total Morale Loss</th><th>Total Kill Rate</th></tr>
+            </thead>
+            <tbody id="armyBody"></tbody>
+        </table>
+        <div class="totals-bar" id="totalsBar"></div>
+        <div id="warningBox"></div>
+    </div>
+    <div class="panel rec-section">
+        <h2>Optimal Compositions</h2>
+        <div class="rec-cards" id="recCards"></div>
+    </div>
+</div>
+</div>
+</div>
+
+<script>
+const UNITS=[
+{id:"irregular_infantry",name:"Irregular Infantry",group:"infantry",offense:10,defense:10,morale_loss:15,kill_rate:0,tech:null,upkeep:[]},
+{id:"line_infantry",name:"Line Infantry",group:"infantry",offense:20,defense:25,morale_loss:10,kill_rate:0,tech:"line_infantry",upkeep:[{good:"small_arms",qty:1}]},
+{id:"skirmish_infantry",name:"Skirmish Infantry",group:"infantry",offense:25,defense:35,morale_loss:10,kill_rate:0,tech:"general_staff",upkeep:[{good:"small_arms",qty:2},{good:"ammunition",qty:1}]},
+{id:"trench_infantry",name:"Trench Infantry",group:"infantry",offense:30,defense:40,morale_loss:8,kill_rate:0,tech:"trench_works",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:2}]},
+{id:"squad_infantry",name:"Squad Infantry",group:"infantry",offense:40,defense:50,morale_loss:6,kill_rate:0,tech:"nco_training",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"radios",qty:1}]},
+{id:"mechanized_infantry",name:"Mechanized Infantry",group:"infantry",offense:50,defense:60,morale_loss:4,kill_rate:0,tech:"mobile_armor",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"oil",qty:1},{good:"radios",qty:1},{good:"tanks",qty:1}]},
+{id:"cannon_artillery",name:"Cannon Artillery",group:"artillery",offense:25,defense:15,morale_loss:10,kill_rate:0.1,tech:"artillery",upkeep:[{good:"artillery",qty:1}]},
+{id:"mobile_artillery",name:"Mobile Artillery",group:"artillery",offense:30,defense:15,morale_loss:8,kill_rate:0.2,tech:"napoleonic_warfare",upkeep:[{good:"artillery",qty:2}]},
+{id:"shrapnel_artillery",name:"Shrapnel Artillery",group:"artillery",offense:45,defense:25,morale_loss:6,kill_rate:0.3,tech:"breech_loading_artillery",upkeep:[{good:"artillery",qty:3},{good:"ammunition",qty:3}]},
+{id:"siege_artillery",name:"Siege Artillery",group:"artillery",offense:55,defense:30,morale_loss:6,kill_rate:0.25,tech:"defense_in_depth",upkeep:[{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1}]},
+{id:"heavy_tank",name:"Heavy Tank",group:"artillery",offense:70,defense:35,morale_loss:4,kill_rate:0.25,tech:"mobile_armor",upkeep:[{good:"tanks",qty:3},{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1},{good:"oil",qty:3}]},
+{id:"hussars",name:"Hussars",group:"cavalry",offense:15,defense:10,morale_loss:10,kill_rate:0,tech:"standing_army",upkeep:[{good:"grain",qty:1}]},
+{id:"dragoons",name:"Dragoons",group:"cavalry",offense:20,defense:25,morale_loss:8,kill_rate:0,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}]},
+{id:"cuirassiers",name:"Cuirassiers",group:"cavalry",offense:25,defense:20,morale_loss:8,kill_rate:0,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}]},
+{id:"lancers",name:"Lancers",group:"cavalry",offense:30,defense:20,morale_loss:6,kill_rate:0.05,tech:"napoleonic_warfare",upkeep:[{good:"grain",qty:2},{good:"small_arms",qty:2},{good:"iron",qty:2}]},
+{id:"light_tanks",name:"Light Tanks",group:"cavalry",offense:45,defense:45,morale_loss:4,kill_rate:0,tech:"mobile_armor",upkeep:[{good:"tanks",qty:2},{good:"artillery",qty:2},{good:"oil",qty:2},{good:"ammunition",qty:2},{good:"radios",qty:2}]}
+];
+
+const TECHNOLOGIES=[
+{id:"standing_army",name:"Standing Army",era:1},
+{id:"line_infantry",name:"Line Infantry",era:1},
+{id:"artillery",name:"Artillery",era:1},
+{id:"napoleonic_warfare",name:"Napoleonic Warfare",era:2},
+{id:"general_staff",name:"General Staff",era:2},
+{id:"trench_works",name:"Trench Works",era:3},
+{id:"breech_loading_artillery",name:"Breech-Loading Artillery",era:3},
+{id:"defense_in_depth",name:"Defense in Depth",era:4},
+{id:"nco_training",name:"NCO Training",era:4},
+{id:"mobile_armor",name:"Mobile Armor",era:5}
+];
+
+const TRAITS={
+skill:[
+{id:"basic_offensive_planner",name:"Basic Offensive Planner",mods:{unit_offense_mult:0.05}},
+{id:"experienced_offensive_planner",name:"Experienced Offensive Planner",mods:{unit_offense_mult:0.1}},
+{id:"expert_offensive_planner",name:"Expert Offensive Planner",mods:{unit_offense_mult:0.2}},
+{id:"basic_defensive_strategist",name:"Basic Defensive Strategist",mods:{unit_defense_mult:0.1}},
+{id:"experienced_defensive_strategist",name:"Experienced Defensive Strategist",mods:{unit_defense_mult:0.2}},
+{id:"expert_defensive_strategist",name:"Expert Defensive Strategist",mods:{unit_defense_mult:0.3}},
+{id:"basic_artillery_commander",name:"Basic Artillery Commander",mods:{unit_artillery_offense_mult:0.05}},
+{id:"experienced_artillery_commander",name:"Experienced Artillery Commander",mods:{unit_artillery_offense_mult:0.1}},
+{id:"expert_artillery_commander",name:"Expert Artillery Commander",mods:{unit_artillery_offense_mult:0.15}},
+{id:"stalwart_defender",name:"Stalwart Defender",mods:{unit_defense_mult:0.1}},
+{id:"trench_rat",name:"Trench Rat",mods:{unit_defense_add:10}},
+{id:"defense_in_depth_specialist",name:"Defense in Depth Specialist",mods:{unit_defense_add:20}},
+{id:"bandit",name:"Bandit",mods:{unit_morale_damage_mult:0.1}},
+{id:"plains_commander",name:"Plains Commander",mods:{unit_offense_flat_mult:0.25}},
+{id:"forest_commander",name:"Forest Commander",mods:{unit_defense_forested_mult:0.25}},
+{id:"mountain_commander",name:"Mountain Commander",mods:{unit_defense_elevated_mult:0.25}},
+{id:"surveyor",name:"Surveyor",mods:{battle_offense_owned_province_mult:0.1,battle_defense_owned_province_mult:0.1}},
+{id:"basic_diplomat",name:"Basic Diplomat",mods:{unit_morale_recovery_mult:0.25}},
+{id:"experienced_diplomat",name:"Experienced Diplomat",mods:{unit_morale_recovery_mult:0.5}},
+{id:"masterful_diplomat",name:"Masterful Diplomat",mods:{unit_morale_recovery_mult:1.0}},
+{id:"inept",name:"Inept",mods:{unit_morale_recovery_mult:-0.25,unit_defense_mult:-0.1,unit_offense_mult:-0.1}},
+{id:"inexperienced",name:"Inexperienced",mods:{unit_morale_recovery_mult:0.10,unit_defense_mult:-0.05,unit_offense_mult:-0.05}}
+],
+personality:[
+{id:"direct",name:"Direct",mods:{unit_offense_mult:0.1}},
+{id:"persistent",name:"Persistent",mods:{unit_morale_loss_mult:-0.15}},
+{id:"cautious",name:"Cautious",mods:{unit_morale_loss_mult:-0.05}},
+{id:"brave",name:"Brave",mods:{unit_morale_loss_mult:-0.1}},
+{id:"innovative",name:"Innovative",mods:{unit_morale_loss_mult:-0.15}},
+{id:"imposing",name:"Imposing",mods:{unit_morale_loss_mult:-0.1}},
+{id:"reserved",name:"Reserved",mods:{unit_morale_loss_mult:-0.1}},
+{id:"meticulous",name:"Meticulous",mods:{unit_offense_mult:0.05,unit_defense_mult:0.05}},
+{id:"charismatic",name:"Charismatic",mods:{unit_morale_recovery_mult:0.1}},
+{id:"tactful",name:"Tactful",mods:{unit_defense_add:5}},
+{id:"cruel",name:"Cruel",mods:{unit_kill_rate_add:0.10}},
+{id:"wrathful",name:"Wrathful",mods:{unit_morale_loss_mult:0.05,unit_morale_damage_mult:0.1}},
+{id:"ambitious",name:"Ambitious",mods:{unit_offense_mult:0.05}},
+{id:"bigoted",name:"Bigoted",mods:{unit_offense_mult:0.05,unit_morale_loss_mult:0.05}},
+{id:"romantic",name:"Romantic",mods:{unit_morale_loss_mult:-0.1,unit_offense_mult:-0.1}},
+{id:"pious",name:"Pious",mods:{unit_kill_rate_add:-0.1,unit_morale_loss_mult:-0.25,unit_morale_recovery_mult:0.25}},
+{id:"imperious",name:"Imperious",mods:{unit_morale_loss_mult:-0.15,unit_morale_recovery_mult:-0.15}},
+{id:"reckless",name:"Reckless",mods:{unit_recovery_rate_add:-0.1}},
+{id:"hedonist",name:"Hedonist",mods:{unit_morale_recovery_mult:0.05}}
+],
+condition:[
+{id:"shellshocked",name:"Shellshocked",mods:{unit_morale_loss_mult:0.2,unit_offense_mult:-0.2,unit_defense_mult:-0.2}},
+{id:"war_criminal",name:"War Criminal",mods:{unit_kill_rate_add:0.1}},
+{id:"wounded",name:"Wounded",mods:{unit_morale_loss_mult:0.1}},
+{id:"senile",name:"Senile",mods:{unit_morale_loss_mult:0.1}}
+]
+};
+
+const ORDERS={
+advance:{name:"Advance",mods:{unit_offense_mult:0.1}},
+defend:{name:"Defend",mods:{unit_defense_mult:0.1}}
+};
+
+const VETERANCY=[
+{level:0,name:"No Veterancy",offense_mult:0,defense_mult:0},
+{level:1,name:"Veterancy I",offense_mult:0.05,defense_mult:0.05},
+{level:2,name:"Veterancy II",offense_mult:0.10,defense_mult:0.10},
+{level:3,name:"Veterancy III",offense_mult:0.15,defense_mult:0.15},
+{level:4,name:"Veterancy IV",offense_mult:0.25,defense_mult:0.25}
+];
+
+// State
+let selectedTechs = new Set();
+let selectedTraits = new Set();
+let selectedOrder = null;
+let selectedVet = 0;
+let battalions = {};
+
+function init() {
+    buildTechUI();
+    buildTraitUI();
+    buildOrderUI();
+    buildVetUI();
+    recalc();
+}
+
+function buildTechUI() {
+    const container = document.getElementById("techChecks");
+    const eras = {};
+    TECHNOLOGIES.forEach(t => {
+        if (!eras[t.era]) eras[t.era] = [];
+        eras[t.era].push(t);
+    });
+    Object.keys(eras).sort().forEach(era => {
+        const div = document.createElement("div");
+        div.className = "era-group";
+        div.innerHTML = '<div class="era-label">Era ' + era + '</div>';
+        eras[era].forEach(t => {
+            const lbl = document.createElement("label");
+            lbl.innerHTML = '<input type="checkbox" data-tech="' + t.id + '" onchange="toggleTech(this)"> ' + t.name;
+            div.appendChild(lbl);
+        });
+        container.appendChild(div);
+    });
+}
+
+function buildTraitUI() {
+    const container = document.getElementById("traitChecks");
+    const catNames = {skill: "Skill Traits", personality: "Personality Traits", condition: "Conditions"};
+    Object.keys(TRAITS).forEach(cat => {
+        const details = document.createElement("details");
+        details.className = "trait-cat";
+        details.open = cat === "skill";
+        const summary = document.createElement("summary");
+        summary.textContent = catNames[cat] + " (" + TRAITS[cat].length + ")";
+        details.appendChild(summary);
+        const list = document.createElement("div");
+        list.className = "trait-list";
+        TRAITS[cat].forEach(t => {
+            const lbl = document.createElement("label");
+            const modStr = Object.entries(t.mods).map(([k,v]) => {
+                const pct = (v > 0 ? "+" : "") + Math.round(v*100) + "%";
+                return k.replace(/unit_|_mult|_add/g,"").replace(/_/g," ") + " " + pct;
+            }).join(", ");
+            lbl.innerHTML = '<input type="checkbox" data-trait="' + t.id + '" data-cat="' + cat + '" onchange="toggleTrait(this)"> ' + t.name + ' <span style="color:#484f58;font-size:0.75rem;">(' + modStr + ')</span>';
+            list.appendChild(lbl);
+        });
+        details.appendChild(list);
+        container.appendChild(details);
+    });
+}
+
+function buildOrderUI() {
+    const container = document.getElementById("orderRadios");
+    const noneLbl = document.createElement("label");
+    noneLbl.innerHTML = '<input type="radio" name="order" value="" checked onchange="setOrder(this)"> None';
+    container.appendChild(noneLbl);
+    Object.keys(ORDERS).forEach(k => {
+        const lbl = document.createElement("label");
+        lbl.innerHTML = '<input type="radio" name="order" value="' + k + '" onchange="setOrder(this)"> ' + ORDERS[k].name;
+        container.appendChild(lbl);
+    });
+}
+
+function buildVetUI() {
+    const sel = document.getElementById("vetSelect");
+    VETERANCY.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.level;
+        opt.textContent = v.name + (v.offense_mult ? " (+" + Math.round(v.offense_mult*100) + "% off/def)" : "");
+        sel.appendChild(opt);
+    });
+    sel.onchange = function() { selectedVet = parseInt(this.value); recalc(); };
+}
+
+function toggleTech(cb) {
+    if (cb.checked) selectedTechs.add(cb.dataset.tech);
+    else selectedTechs.delete(cb.dataset.tech);
+    recalc();
+}
+
+function toggleTrait(cb) {
+    if (cb.checked) selectedTraits.add(cb.dataset.trait);
+    else selectedTraits.delete(cb.dataset.trait);
+    recalc();
+}
+
+function setOrder(rb) {
+    selectedOrder = rb.value || null;
+    recalc();
+}
+
+function getModifiers() {
+    const mods = {};
+    selectedTraits.forEach(tid => {
+        for (const cat of Object.keys(TRAITS)) {
+            const t = TRAITS[cat].find(x => x.id === tid);
+            if (t) {
+                Object.entries(t.mods).forEach(([k,v]) => {
+                    mods[k] = (mods[k] || 0) + v;
+                });
+            }
+        }
+    });
+    return mods;
+}
+
+function getAvailableUnits() {
+    return UNITS.filter(u => u.tech === null || selectedTechs.has(u.tech));
+}
+
+function computeStats(unit, mods) {
+    const vet = VETERANCY[selectedVet] || VETERANCY[0];
+    let offAdd = mods.unit_offense_add || 0;
+    let defAdd = mods.unit_defense_add || 0;
+    let killAdd = mods.unit_kill_rate_add || 0;
+    let offMult = (mods.unit_offense_mult || 0) + vet.offense_mult;
+    let defMult = (mods.unit_defense_mult || 0) + vet.defense_mult;
+    let moraleMult = mods.unit_morale_loss_mult || 0;
+
+    if (unit.group === "artillery") {
+        offMult += (mods.unit_artillery_offense_mult || 0);
+    }
+
+    if (selectedOrder && ORDERS[selectedOrder]) {
+        const om = ORDERS[selectedOrder].mods;
+        if (om.unit_offense_mult) offMult += om.unit_offense_mult;
+        if (om.unit_defense_mult) defMult += om.unit_defense_mult;
+    }
+
+    const effOff = (unit.offense + offAdd) * (1 + offMult);
+    const effDef = (unit.defense + defAdd) * (1 + defMult);
+    const effMorale = unit.morale_loss * (1 + moraleMult);
+    const effKill = unit.kill_rate + killAdd;
+
+    return {offense: effOff, defense: effDef, morale_loss: effMorale, kill_rate: effKill};
+}
+
+function fmtUpkeep(upkeep) {
+    if (!upkeep.length) return "-";
+    return upkeep.map(u => u.qty + " " + u.good.replace(/_/g," ")).join(", ");
+}
+
+function recalc() {
+    const mods = getModifiers();
+    const available = getAvailableUnits();
+    const availIds = new Set(available.map(u => u.id));
+
+    // Clean battalions for unavailable units
+    Object.keys(battalions).forEach(k => {
+        if (!availIds.has(k)) delete battalions[k];
+    });
+
+    renderUnitTable(available, mods);
+    renderArmyBuilder(available, mods);
+    renderRecommendations(available, mods);
+}
+
+function renderUnitTable(available, mods) {
+    const tbody = document.getElementById("unitBody");
+    tbody.innerHTML = "";
+    const groupOrder = {infantry: 0, artillery: 1, cavalry: 2};
+    const sorted = [...available].sort((a,b) => (groupOrder[a.group]||0) - (groupOrder[b.group]||0));
+    sorted.forEach(u => {
+        const s = computeStats(u, mods);
+        const tr = document.createElement("tr");
+        tr.className = "group-" + u.group;
+        tr.innerHTML =
+            '<td><strong>' + u.name + '</strong><br><span style="color:#484f58;font-size:0.75rem;">Base: ' + u.offense + '/' + u.defense + '/' + u.morale_loss + '/' + u.kill_rate + '</span></td>' +
+            '<td>' + u.group + '</td>' +
+            '<td class="stat-off">' + s.offense.toFixed(1) + '</td>' +
+            '<td class="stat-def">' + s.defense.toFixed(1) + '</td>' +
+            '<td class="stat-mor">' + s.morale_loss.toFixed(1) + '</td>' +
+            '<td class="stat-kill">' + s.kill_rate.toFixed(2) + '</td>' +
+            '<td style="font-size:0.75rem;color:#8b949e;">' + fmtUpkeep(u.upkeep) + '</td>';
+        tbody.appendChild(tr);
+    });
+}
+
+function renderArmyBuilder(available, mods) {
+    const tbody = document.getElementById("armyBody");
+    tbody.innerHTML = "";
+    let totalOff = 0, totalDef = 0, totalMorale = 0, totalKill = 0, totalBn = 0, infBn = 0;
+    const groupOrder = {infantry: 0, artillery: 1, cavalry: 2};
+    const sorted = [...available].sort((a,b) => (groupOrder[a.group]||0) - (groupOrder[b.group]||0));
+    sorted.forEach(u => {
+        const s = computeStats(u, mods);
+        const bn = battalions[u.id] || 0;
+        const tr = document.createElement("tr");
+        tr.className = "group-" + u.group;
+        tr.innerHTML =
+            '<td>' + u.name + '</td>' +
+            '<td><input type="number" min="0" max="100" value="' + bn + '" data-uid="' + u.id + '" onchange="setBn(this)"></td>' +
+            '<td class="stat-off">' + (s.offense * bn).toFixed(1) + '</td>' +
+            '<td class="stat-def">' + (s.defense * bn).toFixed(1) + '</td>' +
+            '<td class="stat-mor">' + (s.morale_loss * bn).toFixed(1) + '</td>' +
+            '<td class="stat-kill">' + (s.kill_rate * bn).toFixed(2) + '</td>';
+        tbody.appendChild(tr);
+        totalOff += s.offense * bn;
+        totalDef += s.defense * bn;
+        totalMorale += s.morale_loss * bn;
+        totalKill += s.kill_rate * bn;
+        totalBn += bn;
+        if (u.group === "infantry") infBn += bn;
+    });
+
+    document.getElementById("totalsBar").innerHTML =
+        '<div class="total-card"><div class="val">' + totalBn + '</div><div class="lbl">Battalions</div></div>' +
+        '<div class="total-card"><div class="val stat-off">' + totalOff.toFixed(1) + '</div><div class="lbl">Offense</div></div>' +
+        '<div class="total-card"><div class="val stat-def">' + totalDef.toFixed(1) + '</div><div class="lbl">Defense</div></div>' +
+        '<div class="total-card"><div class="val stat-mor">' + totalMorale.toFixed(1) + '</div><div class="lbl">Morale Loss</div></div>' +
+        '<div class="total-card"><div class="val stat-kill">' + totalKill.toFixed(2) + '</div><div class="lbl">Kill Rate</div></div>';
+
+    const wb = document.getElementById("warningBox");
+    if (totalBn > 0 && infBn / totalBn < 0.5) {
+        wb.innerHTML = '<div class="warning">&#9888; Infantry is below 50% of total battalions (' + infBn + '/' + totalBn + '). Most armies require at least 50% infantry.</div>';
+    } else {
+        wb.innerHTML = "";
+    }
+}
+
+function setBn(input) {
+    const uid = input.dataset.uid;
+    const val = Math.max(0, parseInt(input.value) || 0);
+    input.value = val;
+    battalions[uid] = val;
+    const mods = getModifiers();
+    const available = getAvailableUnits();
+    renderArmyBuilder(available, mods);
+    renderRecommendations(available, mods);
+}
+
+function renderRecommendations(available, mods) {
+    const N = parseInt(document.getElementById("totalBn").value) || 20;
+    const container = document.getElementById("recCards");
+    container.innerHTML = "";
+
+    const infantry = available.filter(u => u.group === "infantry");
+    const allUnits = available;
+
+    if (infantry.length === 0) {
+        container.innerHTML = '<p style="color:#8b949e;">No infantry available. Unlock at least one infantry unit.</p>';
+        return;
+    }
+
+    const objectives = [
+        {name: "Best Offensive", key: "off", score: u => { const s = computeStats(u, mods); return s.offense + s.kill_rate * 100; }},
+        {name: "Best Defensive", key: "def", score: u => { const s = computeStats(u, mods); return s.defense; }},
+        {name: "Balanced", key: "bal", score: u => { const s = computeStats(u, mods); return s.offense + s.defense; }}
+    ];
+
+    objectives.forEach(obj => {
+        const infMin = Math.ceil(N * 0.5);
+        const sortedInf = [...infantry].sort((a, b) => obj.score(b) - obj.score(a));
+        const sortedAll = [...allUnits].sort((a, b) => obj.score(b) - obj.score(a));
+
+        const comp = {};
+        let infFilled = 0;
+
+        // Fill infantry minimum
+        const bestInf = sortedInf[0];
+        comp[bestInf.id] = infMin;
+        infFilled = infMin;
+
+        // Fill remaining with best overall units
+        let remaining = N - infMin;
+        for (let i = 0; i < sortedAll.length && remaining > 0; i++) {
+            const u = sortedAll[i];
+            if (u.group === "infantry" && u.id === bestInf.id) {
+                comp[u.id] = (comp[u.id] || 0) + remaining;
+                remaining = 0;
+            } else if (u.group !== "infantry" || u.id !== bestInf.id) {
+                comp[u.id] = (comp[u.id] || 0) + remaining;
+                remaining = 0;
+            }
+        }
+
+        // Compute total score
+        let totalOff = 0, totalDef = 0, totalKill = 0;
+        Object.entries(comp).forEach(([uid, cnt]) => {
+            const u = UNITS.find(x => x.id === uid);
+            const s = computeStats(u, mods);
+            totalOff += s.offense * cnt;
+            totalDef += s.defense * cnt;
+            totalKill += s.kill_rate * cnt;
+        });
+
+        let scoreVal;
+        if (obj.key === "off") scoreVal = totalOff + totalKill * 100;
+        else if (obj.key === "def") scoreVal = totalDef;
+        else scoreVal = totalOff + totalDef;
+
+        const card = document.createElement("div");
+        card.className = "rec-card";
+        let listHtml = "";
+        Object.entries(comp).filter(([_,c]) => c > 0).forEach(([uid, cnt]) => {
+            const u = UNITS.find(x => x.id === uid);
+            listHtml += '<li><span>' + cnt + 'x</span> ' + u.name + '</li>';
+        });
+        card.innerHTML =
+            '<h3>' + obj.name + '</h3>' +
+            '<div class="rec-score">Score: ' + scoreVal.toFixed(1) + ' | Off: ' + totalOff.toFixed(1) + ' Def: ' + totalDef.toFixed(1) + ' Kill: ' + totalKill.toFixed(2) + '</div>' +
+            '<ul>' + listHtml + '</ul>';
+        container.appendChild(card);
+    });
+}
+
+init();
+</script>
+</body>
+</html>'''
+
+
 class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
     """HTTP handler with upload support."""
 
@@ -570,8 +1159,12 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=self.output_dir, **kwargs)
 
     def do_GET(self):
-        if self.path == "/" or self.path == "/upload":
+        if self.path == "/":
+            self._serve_landing_page()
+        elif self.path == "/upload":
             self._serve_upload_page()
+        elif self.path == "/army":
+            self._serve_army_page()
         elif self.path.startswith("/select"):
             self._serve_select_page()
         elif self.path == "/dashboard" or self.path == "/dashboard/":
@@ -597,11 +1190,23 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def _serve_landing_page(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(LANDING_PAGE.encode("utf-8"))
+
     def _serve_upload_page(self):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(UPLOAD_PAGE.encode("utf-8"))
+
+    def _serve_army_page(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(ARMY_PAGE.encode("utf-8"))
 
     def _handle_upload(self):
         """Step 1: Upload save → parse → cache data → redirect to /select."""
