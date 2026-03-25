@@ -633,6 +633,10 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 meta_parsed = parse_pdx(raw["meta"])
             gamestate = parse_pdx(raw["gamestate"])
 
+            # For melted binary saves, meta_data is embedded in gamestate
+            if not meta_parsed and isinstance(gamestate.get("meta_data"), dict):
+                meta_parsed = gamestate["meta_data"]
+
             # Cache parsed data for the generate step
             _CACHED_GAMESTATE = gamestate
             _CACHED_META = meta_parsed

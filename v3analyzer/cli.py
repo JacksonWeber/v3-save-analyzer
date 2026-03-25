@@ -29,6 +29,10 @@ def _build(savefile, output_dir, country=None):
     print("Parsing gamestate...")
     gamestate = parse_pdx(raw["gamestate"])
 
+    # For melted binary saves, meta_data is embedded in gamestate
+    if not meta_parsed and isinstance(gamestate.get("meta_data"), dict):
+        meta_parsed = gamestate["meta_data"]
+
     if country:
         meta_parsed["player"] = country
 

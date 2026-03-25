@@ -14,6 +14,30 @@ Extracts structured metrics from parsed PDX data:
 from typing import Any
 
 
+def _db_get(d: dict, key, default=None):
+    """Look up *key* in dict *d*, trying both string and int forms.
+
+    PDX parser stores dict keys as raw strings (e.g. "5") while _convert()
+    turns values into ints (e.g. 5).  This helper bridges the mismatch.
+    """
+    if default is None:
+        default = {}
+    if not isinstance(d, dict):
+        return default
+    val = d.get(key)
+    if val is not None:
+        return val
+    # Try the alternate type
+    try:
+        alt = str(key) if not isinstance(key, str) else int(key)
+        val = d.get(alt)
+        if val is not None:
+            return val
+    except (ValueError, TypeError):
+        pass
+    return default
+
+
 def extract_all(gamestate: dict, meta: dict, compare_countries: bool = False) -> dict:
     """Extract all available metrics from a parsed save."""
     player_tag = _get_player_tag(meta, gamestate)
@@ -191,6 +215,13 @@ def _get_player_tag(meta: dict, gamestate: dict) -> str:
             return meta["player"]
         if "player_tag" in meta:
             return meta["player_tag"]
+    # Check embedded meta_data (melted binary saves)
+    embedded = gamestate.get("meta_data", {})
+    if isinstance(embedded, dict):
+        if "player" in embedded:
+            return embedded["player"]
+        if "player_tag" in embedded:
+            return embedded["player_tag"]
     # Check gamestate
     if "player_manager" in gamestate:
         pm = gamestate["player_manager"]
@@ -215,10 +246,9 @@ def _get_player_tag(meta: dict, gamestate: dict) -> str:
 def _resolve_country_tag(gamestate: dict, country_ref: Any) -> str:
     """Resolve a country reference to its tag."""
     countries = _get_countries_db(gamestate)
-    if isinstance(country_ref, int) and country_ref in countries:
-        c = countries[country_ref]
-        if isinstance(c, dict) and "definition" in c:
-            return str(c["definition"])
+    c = _db_get(countries, country_ref)
+    if isinstance(c, dict) and "definition" in c:
+        return str(c["definition"])
     return str(country_ref)
 
 
@@ -256,7 +286,7 @@ def _get_country(gamestate: dict, country_id: int) -> dict:
     if country_id is None:
         return {}
     countries = _get_countries_db(gamestate)
-    return countries.get(country_id, {})
+    return _db_get(countries, country_id)
 
 
 def _get_country_name(country_data: dict, fallback_tag: str) -> str:
@@ -274,6 +304,10 @@ def _get_game_date(meta: dict, gamestate: dict) -> str:
     """Get the current game date."""
     if isinstance(meta, dict) and "date" in meta:
         return str(meta["date"])
+    # Check embedded meta_data (melted binary saves)
+    embedded = gamestate.get("meta_data", {})
+    if isinstance(embedded, dict) and "game_date" in embedded:
+        return str(embedded["game_date"])
     if "date" in gamestate:
         return str(gamestate["date"])
     return "Unknown"
@@ -291,7 +325,7 @@ def _get_country_history(gamestate: dict, country_id: int) -> dict:
     if isinstance(ch, dict) and "database" in ch:
         ch = ch["database"]
     if isinstance(ch, dict) and country_id is not None:
-        result = ch.get(country_id, ch.get(str(country_id), {}))
+        result = _db_get(ch, country_id)
         if result:
             return result
 
@@ -341,18 +375,25 @@ def _extract_embedded_history(country_data: dict) -> dict:
             if vals:
                 history[history_key] = vals
 
-    # Population from pop_statistics (current value, not timeseries)
+    # Population timeseries from pop_statistics.trend_population (channel-based)
     ps = country_data.get("pop_statistics", {})
     if isinstance(ps, dict):
-        total_pop = 0
-        for k in ("population_lower_strata", "population_middle_strata",
-                   "population_upper_strata"):
-            v = ps.get(k, 0)
-            if isinstance(v, (int, float)):
-                total_pop += v
-        if total_pop > 0:
-            # Create a single-value population series
-            history["weekly_population"] = [total_pop]
+        tp = ps.get("trend_population", {})
+        if isinstance(tp, dict) and "channels" in tp:
+            vals = _extract_channel_values(tp)
+            if vals:
+                history["weekly_population"] = vals
+
+        # Fallback: single snapshot from strata totals
+        if "weekly_population" not in history:
+            total_pop = 0
+            for k in ("population_lower_strata", "population_middle_strata",
+                       "population_upper_strata"):
+                v = ps.get(k, 0)
+                if isinstance(v, (int, float)):
+                    total_pop += v
+            if total_pop > 0:
+                history["weekly_population"] = [total_pop]
 
     return history
 
