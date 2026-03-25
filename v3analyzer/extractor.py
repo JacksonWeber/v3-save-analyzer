@@ -526,10 +526,14 @@ def _extract_states(gamestate: dict, country_id: int) -> list:
                     continue
                 owner = sdata.get("country", sdata.get("owner"))
                 if owner == country_id or str(owner) == str(country_id):
+                    raw = sdata.get("region",
+                                    sdata.get("definition",
+                                              sdata.get("name", str(sid))))
+                    display = str(raw).lower().replace("state_", "").replace("_", " ").title()
                     states_list.append(
                         {
                             "id": sid,
-                            "name": sdata.get("definition", sdata.get("name", str(sid))),
+                            "name": display,
                             "population": sdata.get("population", 0),
                             "gdp": sdata.get("gdp", 0),
                             "infrastructure": sdata.get("infrastructure", 0),
@@ -649,7 +653,18 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
                     continue
                 owner = sdata.get("country", sdata.get("owner"))
                 tag = id_to_info.get(owner, id_to_info.get(str(owner), str(owner)))
-                name = str(sdata.get("definition", sdata.get("name", str(sid))))
+                # 'region' holds STATE_XXX in binary/melted saves;
+                # 'definition' holds state_xxx in text saves
+                raw_name = sdata.get("region",
+                                     sdata.get("definition",
+                                                sdata.get("name", str(sid))))
+                raw_name = str(raw_name)
+                # Normalise to STATE_XXX for map matching
+                state_key = raw_name.upper()
+                if not state_key.startswith("STATE_"):
+                    state_key = "STATE_" + state_key
+                # Display name: strip prefix, title-case
+                display = raw_name.lower().replace("state_", "").replace("_", " ").title()
                 pop = sdata.get("population", 0)
                 gdp = sdata.get("gdp", 0)
                 infra = sdata.get("infrastructure", 0)
@@ -667,7 +682,8 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
                         "total_gdp": 0,
                     }
                 territories[tag]["states"].append({
-                    "name": name.replace("state_", "").replace("_", " ").title(),
+                    "name": display,
+                    "state_key": state_key,
                     "population": pop,
                     "gdp": gdp,
                     "infrastructure": infra,

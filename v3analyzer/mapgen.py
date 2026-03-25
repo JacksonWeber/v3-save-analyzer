@@ -265,8 +265,11 @@ def build_ownership_from_save(territory_map: dict) -> dict:
                 break  # guard against circular refs
             seen.add(resolved)
         for state in country.get("states", []):
-            # Convert "Home Counties" back to "STATE_HOME_COUNTIES"
-            name = state.get("name", "")
-            state_key = "STATE_" + name.upper().replace(" ", "_")
+            # Use pre-computed state_key (STATE_XXX) if available,
+            # otherwise convert display name back
+            state_key = state.get("state_key")
+            if not state_key:
+                name = state.get("name", "")
+                state_key = "STATE_" + name.upper().replace(" ", "_")
             ownership[state_key] = resolved
     return ownership
