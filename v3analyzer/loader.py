@@ -8,7 +8,11 @@ import os
 
 
 def load_save(path: str) -> dict:
-    """Load a V3 save file and return raw text content for gamestate and meta."""
+    """Load a V3 save file and return raw text content for gamestate and meta.
+
+    Returns {"gamestate": str, "meta": str}.
+    Raises ValueError for binary/ironman saves (not yet supported).
+    """
     if not os.path.exists(path):
         raise FileNotFoundError(f"Save file not found: {path}")
 
@@ -42,30 +46,30 @@ def _load_zip(path: str) -> dict:
             )
 
         gs_bytes = zf.read(gamestate_name)
+        meta_bytes = zf.read(meta_name) if meta_name else b""
+
         if _is_binary(gs_bytes):
             raise ValueError(
-                "Binary save format detected. Please re-save your game in text format.\n"
-                "Edit pdx_settings.json and set: \"save_file_format\": \"zip_text_all\""
+                "Binary/ironman saves are not yet supported. "
+                "Please use a text-format save (set 'save_as_binary = no' in pdx_settings.json)."
             )
-        result["gamestate"] = gs_bytes.decode("utf-8", errors="replace")
 
-        if meta_name:
-            meta_bytes = zf.read(meta_name)
-            result["meta"] = meta_bytes.decode("utf-8", errors="replace")
-        else:
-            result["meta"] = ""
+        result["gamestate"] = gs_bytes.decode("utf-8", errors="replace")
+        result["meta"] = meta_bytes.decode("utf-8", errors="replace") if meta_bytes else ""
 
     return result
 
 
 def _is_binary(data: bytes) -> bool:
-    """Heuristic check: binary saves start with non-printable bytes."""
-    # Text saves start with readable ASCII like "SAV" header or direct key=value
-    # Binary saves have lots of non-printable characters in the first 200 bytes
+    """Check if data is Clausewitz binary format."""
+    if len(data) >= 2:
+        import struct
+        magic = struct.unpack_from('<H', data, 0)[0]
+        if magic == 0x55AD:
+            return True
     sample = data[:500]
     non_printable = sum(
         1 for b in sample
         if b < 0x09 or (0x0E <= b < 0x20 and b != 0x1B)
     )
-    # If more than 10% non-printable, it's likely binary
     return non_printable > len(sample) * 0.10

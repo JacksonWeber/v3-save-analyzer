@@ -26,11 +26,11 @@ def _build(savefile, output_dir, country=None):
     meta_parsed = {}
     if raw.get("meta"):
         meta_parsed = parse_pdx(raw["meta"])
-    if country:
-        meta_parsed["player"] = country
-
     print("Parsing gamestate...")
     gamestate = parse_pdx(raw["gamestate"])
+
+    if country:
+        meta_parsed["player"] = country
 
     print("Extracting metrics...")
     data = extract_all(gamestate, meta_parsed)

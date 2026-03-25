@@ -627,10 +627,10 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
                 tmp_path = tmp.name
 
             raw = load_save(tmp_path)
+
             meta_parsed = {}
             if raw.get("meta"):
                 meta_parsed = parse_pdx(raw["meta"])
-
             gamestate = parse_pdx(raw["gamestate"])
 
             # Cache parsed data for the generate step
