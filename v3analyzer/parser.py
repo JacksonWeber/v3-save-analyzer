@@ -1,5 +1,8 @@
 """
-Recursive descent parser for Paradox PDXScript text format.
+Parser for Paradox PDXScript text format.
+
+Uses regex-based tokenization for performance (C-speed), then builds
+the tree in a single pass.
 
 Handles:
 - key = value pairs
@@ -13,224 +16,184 @@ Handles:
 - Operators: = > < >= <=
 """
 import re
+import sys
 from typing import Any
+
+# Increase recursion limit for deeply nested save files
+sys.setrecursionlimit(15000)
+
+# Single regex that tokenizes all PDX elements.
+# Ordering matters: comments and quoted strings must match before operators/tokens.
+_TOKEN_RE = re.compile(r"""
+    \#[^\n]*             |  # comment — skip entirely
+    ("(?:[^"\\]|\\.)*")  |  # quoted string (group 1)
+    ([{}])               |  # braces (group 2)
+    ([=><]=?)            |  # operators (group 3)
+    ([^\s={}><\#"]+)        # unquoted token (group 4)
+""", re.VERBOSE)
+
+
+def _convert(token: str) -> Any:
+    """Convert an unquoted string token to the appropriate Python type."""
+    if token == "yes":
+        return True
+    if token == "no":
+        return False
+    try:
+        return int(token)
+    except ValueError:
+        pass
+    try:
+        return float(token)
+    except ValueError:
+        pass
+    return token
+
+
+def _tokenize(text: str) -> list:
+    """Tokenize PDXScript text into a flat list of (type, value) tuples.
+
+    Types: 's' = string, 'b' = brace, 'o' = operator, 't' = token
+    Comments are discarded. This runs at C speed via re.finditer.
+    """
+    tokens = []
+    append = tokens.append  # local ref for speed
+    for m in _TOKEN_RE.finditer(text):
+        g1 = m.group(1)
+        if g1 is not None:
+            append(('s', g1[1:-1]))  # strip quotes
+            continue
+        g2 = m.group(2)
+        if g2 is not None:
+            append(('b', g2))
+            continue
+        g3 = m.group(3)
+        if g3 is not None:
+            append(('o', g3))
+            continue
+        g4 = m.group(4)
+        if g4 is not None:
+            append(('t', g4))
+    return tokens
 
 
 class PDXParser:
-    """Parse PDXScript text into Python data structures."""
+    """Parse PDXScript text into Python data structures.
+
+    Uses fast regex tokenization followed by a single-pass recursive
+    descent tree builder.
+    """
 
     def __init__(self, text: str):
-        self.text = text
-        self.pos = 0
-        self.length = len(text)
+        # Strip SAV header line if present (Rakaly melted saves)
+        if text.startswith('SAV'):
+            nl = text.index('\n')
+            text = text[nl + 1:]
+        self._tokens = _tokenize(text)
+        self._n = len(self._tokens)
+        self._pos = 0
 
     def parse(self) -> dict:
         """Parse the entire text and return a dict."""
-        self._skip_whitespace_and_comments()
-        result = self._parse_pairs()
-        return result
+        return self._parse_pairs()
+
+    # ---- internal recursive descent on token list ----
 
     def _parse_pairs(self) -> dict:
-        """Parse a sequence of key=value pairs into a dict."""
+        """Parse key=value pairs until } or end of tokens."""
         result = {}
-        while self.pos < self.length:
-            self._skip_whitespace_and_comments()
-            if self.pos >= self.length:
-                break
-            # Check for closing brace
-            if self.text[self.pos] == "}":
-                break
+        tokens = self._tokens
+        n = self._n
+        while self._pos < n:
+            typ, val = tokens[self._pos]
+            if typ == 'b' and val == '}':
+                return result
 
-            key = self._parse_token()
-            if key is None:
-                break
+            self._pos += 1
 
-            self._skip_whitespace_and_comments()
-
-            # Check if next char is an operator
-            if self.pos < self.length and self.text[self.pos] in "=><":
-                self._consume_operator()
-                self._skip_whitespace_and_comments()
-                value = self._parse_value()
-            else:
-                # Bare value (part of an array) — shouldn't happen at top level
-                # but handle gracefully
-                value = key
-                key = None
-
-            if key is not None:
-                # Handle duplicate keys by converting to list
+            # Expect operator next for a key=value pair
+            if self._pos < n and tokens[self._pos][0] == 'o':
+                self._pos += 1  # consume operator
+                pval = self._parse_value()
+                key = val
                 if key in result:
                     existing = result[key]
-                    if isinstance(existing, list) and not self._is_value_list(existing):
-                        existing.append(value)
+                    if isinstance(existing, list):
+                        existing.append(pval)
                     else:
-                        result[key] = [existing, value]
+                        result[key] = [existing, pval]
                 else:
-                    result[key] = value
+                    result[key] = pval
+            else:
+                # No operator — bare value; backtrack so caller can handle
+                self._pos -= 1
+                return result
 
         return result
-
-    def _is_value_list(self, lst: list) -> bool:
-        """Check if a list looks like a parsed array value (all primitives)
-        vs a duplicate-key accumulator."""
-        # Duplicate-key lists can contain dicts; array values are primitives
-        # This is a heuristic — not perfect but good enough
-        return False
 
     def _parse_value(self) -> Any:
-        """Parse a single value: block, quoted string, or token."""
-        self._skip_whitespace_and_comments()
-        if self.pos >= self.length:
+        """Parse a single value: block, string, or primitive token."""
+        if self._pos >= self._n:
             return ""
-
-        ch = self.text[self.pos]
-
-        if ch == "{":
+        typ, val = self._tokens[self._pos]
+        if typ == 'b' and val == '{':
             return self._parse_block()
-        elif ch == '"':
-            return self._parse_quoted_string()
-        else:
-            return self._parse_token_value()
+        self._pos += 1
+        if typ == 's':
+            return val
+        # Handle color literals: rgb { R G B } or hsv { H S V }
+        converted = _convert(val)
+        if val in ('rgb', 'hsv') and self._pos < self._n:
+            ntyp, nval = self._tokens[self._pos]
+            if ntyp == 'b' and nval == '{':
+                block = self._parse_block()
+                return val  # discard color values, keep as string label
+        return converted
 
     def _parse_block(self) -> Any:
-        """Parse a { ... } block. Could be a dict (key=value pairs) or an array."""
-        self.pos += 1  # skip '{'
-        self._skip_whitespace_and_comments()
-
-        if self.pos >= self.length:
+        """Parse a { ... } block as either a dict or array."""
+        self._pos += 1  # skip '{'
+        if self._pos >= self._n:
+            return {}
+        typ, val = self._tokens[self._pos]
+        if typ == 'b' and val == '}':
+            self._pos += 1
             return {}
 
-        if self.text[self.pos] == "}":
-            self.pos += 1
-            return {}
-
-        # Peek ahead to determine if this is a dict or array
-        if self._block_is_array():
-            return self._parse_array()
-        else:
+        # Peek: if second token is an operator, parse as dict
+        if self._pos + 1 < self._n and self._tokens[self._pos + 1][0] == 'o':
             result = self._parse_pairs()
-            self._skip_whitespace_and_comments()
-            if self.pos < self.length and self.text[self.pos] == "}":
-                self.pos += 1
-            return result
+        else:
+            result = self._parse_array()
 
-    def _block_is_array(self) -> bool:
-        """Peek ahead to determine if a block contains key=value pairs or bare values."""
-        save_pos = self.pos
-        # Skip first token
-        self._parse_token()
-        self._skip_whitespace_and_comments()
-
-        is_array = True
-        if self.pos < self.length and self.text[self.pos] in "=><":
-            is_array = False
-
-        self.pos = save_pos
-        return is_array
-
-    def _parse_array(self) -> list:
-        """Parse an array of values inside { }."""
-        result = []
-        while self.pos < self.length:
-            self._skip_whitespace_and_comments()
-            if self.pos >= self.length:
-                break
-            if self.text[self.pos] == "}":
-                self.pos += 1
-                return result
-
-            value = self._parse_value()
-            result.append(value)
-
+        # Consume closing brace
+        if (self._pos < self._n
+                and self._tokens[self._pos][0] == 'b'
+                and self._tokens[self._pos][1] == '}'):
+            self._pos += 1
         return result
 
-    def _parse_token(self) -> str:
-        """Parse an unquoted token (key or value)."""
-        self._skip_whitespace_and_comments()
-        if self.pos >= self.length:
-            return None
+    def _parse_array(self) -> Any:
+        """Parse an array of values inside { }.
 
-        if self.text[self.pos] == '"':
-            return self._parse_quoted_string()
-
-        start = self.pos
-        while self.pos < self.length:
-            ch = self.text[self.pos]
-            if ch in " \t\r\n={}><#":
-                break
-            self.pos += 1
-
-        if self.pos == start:
-            return None
-
-        return self.text[start : self.pos]
-
-    def _parse_token_value(self) -> Any:
-        """Parse a token and convert to appropriate Python type."""
-        token = self._parse_token()
-        if token is None:
-            return ""
-        return self._convert_token(token)
-
-    def _convert_token(self, token: str) -> Any:
-        """Convert a string token to the appropriate Python type."""
-        if token == "yes":
-            return True
-        if token == "no":
-            return False
-
-        # Try integer
-        try:
-            return int(token)
-        except ValueError:
-            pass
-
-        # Try float
-        try:
-            return float(token)
-        except ValueError:
-            pass
-
-        # It's a string (could be a date like 1836.1.1, country tag, etc.)
-        return token
-
-    def _parse_quoted_string(self) -> str:
-        """Parse a "quoted string"."""
-        self.pos += 1  # skip opening quote
-        start = self.pos
-        while self.pos < self.length:
-            ch = self.text[self.pos]
-            if ch == "\\":
-                self.pos += 2  # skip escaped char
-                continue
-            if ch == '"':
-                result = self.text[start : self.pos]
-                self.pos += 1  # skip closing quote
+        If a key=value pair is encountered mid-array, switches to dict mode.
+        """
+        result = []
+        tokens = self._tokens
+        n = self._n
+        while self._pos < n:
+            typ, val = tokens[self._pos]
+            if typ == 'b' and val == '}':
                 return result
-            self.pos += 1
-        return self.text[start : self.pos]
-
-    def _consume_operator(self):
-        """Consume an operator (=, >, <, >=, <=)."""
-        if self.pos < self.length:
-            ch = self.text[self.pos]
-            self.pos += 1
-            if self.pos < self.length and self.text[self.pos] in "=":
-                self.pos += 1
-
-    def _skip_whitespace_and_comments(self):
-        """Skip whitespace and # comments."""
-        while self.pos < self.length:
-            ch = self.text[self.pos]
-            if ch in " \t\r\n":
-                self.pos += 1
-            elif ch == "#":
-                # Skip to end of line
-                while self.pos < self.length and self.text[self.pos] != "\n":
-                    self.pos += 1
-            else:
-                break
+            # Detect key=value → switch to dict mode
+            if self._pos + 1 < n and tokens[self._pos + 1][0] == 'o':
+                d = self._parse_pairs()
+                if not result:
+                    return d
+                # Rare: array followed by key=value pairs; return array
+                return result
+            result.append(self._parse_value())
+        return result
 
 
 def parse_pdx(text: str) -> dict:

@@ -20,3 +20,8 @@ Thumbs.db
 
 # Temp saves
 *.v3
+
+# Rakaly CLI binary
+rakaly-*/
+rakaly.tar.gz
+output_*/

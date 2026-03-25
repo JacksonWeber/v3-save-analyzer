@@ -57,29 +57,52 @@ def list_countries(gamestate: dict, meta: dict) -> list:
         country_history = country_history["database"]
 
     results = []
-    if not isinstance(country_history, dict):
-        return results
 
-    for cid_key, history in country_history.items():
-        if not isinstance(history, dict):
-            continue
-        # Quick check: does this country have GDP data?
-        gdp_data = history.get("weekly_gdp", history.get("gdp", []))
-        if not isinstance(gdp_data, list) or len(gdp_data) < 2:
-            continue
+    # Strategy 1: dedicated country_history section (sample/text saves)
+    if isinstance(country_history, dict) and country_history:
+        for cid_key, history in country_history.items():
+            if not isinstance(history, dict):
+                continue
+            gdp_data = history.get("weekly_gdp", history.get("gdp", []))
+            if not isinstance(gdp_data, list) or len(gdp_data) < 2:
+                continue
 
-        country_data = countries_db.get(cid_key, {})
-        tag = str(country_data.get("definition", cid_key))
-        name = _get_country_name(country_data, tag)
-        is_player = (cid_key == player_id or str(cid_key) == str(player_id))
-        final_gdp = gdp_data[-1] if gdp_data else 0
+            country_data = countries_db.get(cid_key, {})
+            tag = str(country_data.get("definition", cid_key))
+            name = _get_country_name(country_data, tag)
+            is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+            final_gdp = gdp_data[-1] if gdp_data else 0
 
-        results.append({
-            "tag": tag,
-            "name": name,
-            "is_player": is_player,
-            "final_gdp": float(final_gdp) if isinstance(final_gdp, (int, float)) else 0,
-        })
+            results.append({
+                "tag": tag,
+                "name": name,
+                "is_player": is_player,
+                "final_gdp": float(final_gdp) if isinstance(final_gdp, (int, float)) else 0,
+            })
+
+    # Strategy 2: history embedded in country entries (melted binary saves)
+    if not results:
+        for cid_key, country_data in countries_db.items():
+            if not isinstance(country_data, dict):
+                continue
+            gdp_block = country_data.get("gdp", {})
+            if not isinstance(gdp_block, dict) or "channels" not in gdp_block:
+                continue
+            gdp_vals = _extract_channel_values(gdp_block)
+            if len(gdp_vals) < 2:
+                continue
+
+            tag = str(country_data.get("definition", cid_key))
+            name = _get_country_name(country_data, tag)
+            is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+            final_gdp = gdp_vals[-1] if gdp_vals else 0
+
+            results.append({
+                "tag": tag,
+                "name": name,
+                "is_player": is_player,
+                "final_gdp": float(final_gdp) if isinstance(final_gdp, (int, float)) else 0,
+            })
 
     results.sort(key=lambda c: (not c["is_player"], -c["final_gdp"]))
     return results
@@ -99,32 +122,59 @@ def _extract_all_countries(gamestate: dict, player_id: int, selected_tags=None) 
         tag_filter = set(str(t) for t in selected_tags)
 
     countries = []
-    if not isinstance(country_history, dict):
-        return countries
 
-    for cid_key, history in country_history.items():
-        if not isinstance(history, dict):
-            continue
+    # Strategy 1: dedicated country_history section
+    if isinstance(country_history, dict) and country_history:
+        for cid_key, history in country_history.items():
+            if not isinstance(history, dict):
+                continue
 
-        country_data = countries_db.get(cid_key, {})
-        tag = str(country_data.get("definition", cid_key))
+            country_data = countries_db.get(cid_key, {})
+            tag = str(country_data.get("definition", cid_key))
 
-        if tag_filter and tag not in tag_filter:
-            continue
+            if tag_filter and tag not in tag_filter:
+                continue
 
-        ts = _extract_timeseries(history)
-        if not ts or "gdp" not in ts:
-            continue
+            ts = _extract_timeseries(history)
+            if not ts or "gdp" not in ts:
+                continue
 
-        name = _get_country_name(country_data, tag)
-        is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+            name = _get_country_name(country_data, tag)
+            is_player = (cid_key == player_id or str(cid_key) == str(player_id))
 
-        countries.append({
-            "tag": tag,
-            "name": name,
-            "is_player": is_player,
-            "timeseries": ts,
-        })
+            countries.append({
+                "tag": tag,
+                "name": name,
+                "is_player": is_player,
+                "timeseries": ts,
+            })
+
+    # Strategy 2: history embedded in country entries (melted binary saves)
+    if not countries:
+        for cid_key, country_data in countries_db.items():
+            if not isinstance(country_data, dict):
+                continue
+            tag = str(country_data.get("definition", cid_key))
+            if tag_filter and tag not in tag_filter:
+                continue
+
+            history = _extract_embedded_history(country_data)
+            if not history:
+                continue
+
+            ts = _extract_timeseries(history)
+            if not ts or "gdp" not in ts:
+                continue
+
+            name = _get_country_name(country_data, tag)
+            is_player = (cid_key == player_id or str(cid_key) == str(player_id))
+
+            countries.append({
+                "tag": tag,
+                "name": name,
+                "is_player": is_player,
+                "timeseries": ts,
+            })
 
     # Sort: player first, then by final GDP descending
     countries.sort(
@@ -230,13 +280,81 @@ def _get_game_date(meta: dict, gamestate: dict) -> str:
 
 
 def _get_country_history(gamestate: dict, country_id: int) -> dict:
-    """Get the country_history entry for the player."""
+    """Get the country_history entry for the player.
+
+    Supports two formats:
+    1. Separate country_history section (sample/text saves)
+    2. History embedded in country_manager entries (melted binary saves)
+    """
+    # Try dedicated country_history section first
     ch = gamestate.get("country_history", {})
     if isinstance(ch, dict) and "database" in ch:
         ch = ch["database"]
     if isinstance(ch, dict) and country_id is not None:
-        return ch.get(country_id, ch.get(str(country_id), {}))
+        result = ch.get(country_id, ch.get(str(country_id), {}))
+        if result:
+            return result
+
+    # Fallback: history embedded in country_manager entry
+    country_data = _get_country(gamestate, country_id)
+    if isinstance(country_data, dict):
+        return _extract_embedded_history(country_data)
     return {}
+
+
+def _extract_channel_values(channel_data: dict) -> list:
+    """Extract values from a channel-based history block.
+
+    Melted format: {sample_rate: 28, count: N, channels: {0: {date, index, values: [...]}}}
+    """
+    if not isinstance(channel_data, dict):
+        return []
+    channels = channel_data.get("channels", {})
+    if isinstance(channels, dict):
+        ch0 = channels.get("0", channels.get(0, {}))
+        if isinstance(ch0, dict):
+            vals = ch0.get("values", [])
+            if isinstance(vals, list):
+                return vals
+    return []
+
+
+def _extract_embedded_history(country_data: dict) -> dict:
+    """Convert embedded channel-based history to the flat format expected by _extract_timeseries.
+
+    Maps: country.gdp.channels.0.values → weekly_gdp, etc.
+    """
+    history = {}
+
+    # Channel-based history fields in melted saves
+    channel_map = {
+        "gdp": "weekly_gdp",
+        "prestige": "weekly_prestige",
+        "literacy": "weekly_literacy",
+        "avgsoltrend": "weekly_sol",
+    }
+
+    for field, history_key in channel_map.items():
+        data = country_data.get(field, {})
+        if isinstance(data, dict) and "channels" in data:
+            vals = _extract_channel_values(data)
+            if vals:
+                history[history_key] = vals
+
+    # Population from pop_statistics (current value, not timeseries)
+    ps = country_data.get("pop_statistics", {})
+    if isinstance(ps, dict):
+        total_pop = 0
+        for k in ("population_lower_strata", "population_middle_strata",
+                   "population_upper_strata"):
+            v = ps.get(k, 0)
+            if isinstance(v, (int, float)):
+                total_pop += v
+        if total_pop > 0:
+            # Create a single-value population series
+            history["weekly_population"] = [total_pop]
+
+    return history
 
 
 def _extract_timeseries(history: dict) -> dict:

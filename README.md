@@ -43,13 +43,21 @@ python3 -m v3analyzer your_save.v3 --country FRA
 
 ## Save File Format
 
-The tool supports **text-format** Victoria 3 saves (.v3 ZIP files). To save in text format:
+The tool supports both **text** and **binary/ironman** Victoria 3 saves (.v3 ZIP files).
+
+### Binary saves (default game format)
+Binary saves are automatically detected and converted to text using [Rakaly CLI](https://github.com/rakaly/cli). To set up:
+
+1. Download the Rakaly CLI for your platform from [GitHub releases](https://github.com/rakaly/cli/releases)
+2. Place the `rakaly` binary in the project root directory, or add it to your PATH
+3. The tool will automatically detect and melt binary saves
+
+### Text saves
+If you prefer text saves (no Rakaly needed):
 
 1. Edit `~/Documents/Paradox Interactive/Victoria 3/pdx_settings.json`
 2. Set `"save_file_format": "zip_text_all"` under the `game` section
 3. Re-save your game
-
-Binary saves are not supported (the tool will tell you how to convert).
 
 ## Output
 
