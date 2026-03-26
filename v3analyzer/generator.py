@@ -33,6 +33,7 @@ def _week_to_year_labels(num_weeks: int) -> list:
 def generate_dashboard(data: dict, output_path: str, map_svg: str = ""):
     """Generate an HTML dashboard from extracted save data."""
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=True)
+    env.filters["fmt_number"] = _fmt_number
     template = env.get_template("dashboard.html")
 
     cards = _build_cards(data)
@@ -56,6 +57,23 @@ def generate_dashboard(data: dict, output_path: str, map_svg: str = ""):
     territory_map = data.get("territory_map", {})
     territory_map_json = json.dumps(territory_map)
 
+    # Build top 10 countries (by prestige, matching in-game ranking)
+    top_countries = []
+    if territory_map and territory_map.get("countries"):
+        for c in territory_map["countries"][:10]:
+            top_countries.append({
+                "rank": len(top_countries) + 1,
+                "tag": c.get("tag", ""),
+                "name": c.get("name", c.get("tag", "")),
+                "is_player": c.get("is_player", False),
+                "prestige": _fmt_number(c.get("prestige", 0)),
+                "gdp": _fmt_number(c.get("total_gdp", 0)),
+                "population": _fmt_number(c.get("total_pop", 0)),
+                "army_size": _fmt_number(c.get("army_size", 0)),
+                "navy_size": _fmt_number(c.get("navy_size", 0)),
+                "num_states": len(c.get("states", [])),
+            })
+
     html = template.render(
         meta=data.get("meta", {}),
         cards=cards,
@@ -69,6 +87,7 @@ def generate_dashboard(data: dict, output_path: str, map_svg: str = ""):
         goods=goods,
         territory_map=territory_map,
         territory_map_json=territory_map_json,
+        top_countries=top_countries,
         map_svg=map_svg,
     )
 

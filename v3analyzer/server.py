@@ -704,7 +704,7 @@ input[type=number]:focus{border-color:#d4a843;outline:none;}
         <div style="overflow-x:auto;">
         <table id="unitTable">
             <thead>
-                <tr><th>Unit</th><th>Group</th><th>Off</th><th>Def</th><th>Morale Loss</th><th>Kill Rate</th><th>Upkeep</th></tr>
+                <tr><th>Unit</th><th>Group</th><th>Off</th><th>Def</th><th>Morale Loss</th><th>Kill Rate</th><th>Morale Dmg</th><th>Devastation</th><th>Upkeep</th></tr>
             </thead>
             <tbody id="unitBody"></tbody>
         </table>
@@ -731,34 +731,47 @@ input[type=number]:focus{border-color:#d4a843;outline:none;}
 
 <script>
 const UNITS=[
-{id:"irregular_infantry",name:"Irregular Infantry",group:"infantry",offense:10,defense:10,morale_loss:15,kill_rate:0,tech:null,upkeep:[]},
-{id:"line_infantry",name:"Line Infantry",group:"infantry",offense:20,defense:25,morale_loss:10,kill_rate:0,tech:"line_infantry",upkeep:[{good:"small_arms",qty:1}]},
-{id:"skirmish_infantry",name:"Skirmish Infantry",group:"infantry",offense:25,defense:35,morale_loss:10,kill_rate:0,tech:"general_staff",upkeep:[{good:"small_arms",qty:2},{good:"ammunition",qty:1}]},
-{id:"trench_infantry",name:"Trench Infantry",group:"infantry",offense:30,defense:40,morale_loss:8,kill_rate:0,tech:"trench_works",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:2}]},
-{id:"squad_infantry",name:"Squad Infantry",group:"infantry",offense:40,defense:50,morale_loss:6,kill_rate:0,tech:"nco_training",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"radios",qty:1}]},
-{id:"mechanized_infantry",name:"Mechanized Infantry",group:"infantry",offense:50,defense:60,morale_loss:4,kill_rate:0,tech:"mobile_armor",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"oil",qty:1},{good:"radios",qty:1},{good:"tanks",qty:1}]},
-{id:"cannon_artillery",name:"Cannon Artillery",group:"artillery",offense:25,defense:15,morale_loss:10,kill_rate:0.1,tech:"artillery",upkeep:[{good:"artillery",qty:1}]},
-{id:"mobile_artillery",name:"Mobile Artillery",group:"artillery",offense:30,defense:15,morale_loss:8,kill_rate:0.2,tech:"napoleonic_warfare",upkeep:[{good:"artillery",qty:2}]},
-{id:"shrapnel_artillery",name:"Shrapnel Artillery",group:"artillery",offense:45,defense:25,morale_loss:6,kill_rate:0.3,tech:"breech_loading_artillery",upkeep:[{good:"artillery",qty:3},{good:"ammunition",qty:3}]},
-{id:"siege_artillery",name:"Siege Artillery",group:"artillery",offense:55,defense:30,morale_loss:6,kill_rate:0.25,tech:"defense_in_depth",upkeep:[{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1}]},
-{id:"heavy_tank",name:"Heavy Tank",group:"artillery",offense:70,defense:35,morale_loss:4,kill_rate:0.25,tech:"mobile_armor",upkeep:[{good:"tanks",qty:3},{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1},{good:"oil",qty:3}]},
-{id:"hussars",name:"Hussars",group:"cavalry",offense:15,defense:10,morale_loss:10,kill_rate:0,tech:"standing_army",upkeep:[{good:"grain",qty:1}]},
-{id:"dragoons",name:"Dragoons",group:"cavalry",offense:20,defense:25,morale_loss:8,kill_rate:0,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}]},
-{id:"cuirassiers",name:"Cuirassiers",group:"cavalry",offense:25,defense:20,morale_loss:8,kill_rate:0,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}]},
-{id:"lancers",name:"Lancers",group:"cavalry",offense:30,defense:20,morale_loss:6,kill_rate:0.05,tech:"napoleonic_warfare",upkeep:[{good:"grain",qty:2},{good:"small_arms",qty:2},{good:"iron",qty:2}]},
-{id:"light_tanks",name:"Light Tanks",group:"cavalry",offense:45,defense:45,morale_loss:4,kill_rate:0,tech:"mobile_armor",upkeep:[{good:"tanks",qty:2},{good:"artillery",qty:2},{good:"oil",qty:2},{good:"ammunition",qty:2},{good:"radios",qty:2}]}
+{id:"irregular_infantry",name:"Irregular Infantry",group:"infantry",offense:10,defense:10,morale_loss:15,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:null,upkeep:[],speed:0},
+{id:"line_infantry",name:"Line Infantry",group:"infantry",offense:20,defense:25,morale_loss:10,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:"line_infantry",upkeep:[{good:"small_arms",qty:1}],speed:0},
+{id:"skirmish_infantry",name:"Skirmish Infantry",group:"infantry",offense:25,defense:35,morale_loss:10,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:"general_staff",upkeep:[{good:"small_arms",qty:2},{good:"ammunition",qty:1}],speed:0},
+{id:"trench_infantry",name:"Trench Infantry",group:"infantry",offense:30,defense:40,morale_loss:8,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:"trench_works",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:2}],speed:0},
+{id:"squad_infantry",name:"Squad Infantry",group:"infantry",offense:40,defense:50,morale_loss:6,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:"nco_training",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"radios",qty:1}],speed:0},
+{id:"mechanized_infantry",name:"Mechanized Infantry",group:"infantry",offense:50,defense:60,morale_loss:4,kill_rate:0,morale_damage:0,devastation:0.1,occupation:0,tech:"mobile_armor",upkeep:[{good:"small_arms",qty:3},{good:"ammunition",qty:3},{good:"oil",qty:1},{good:"radios",qty:1},{good:"tanks",qty:1}],speed:0},
+{id:"cannon_artillery",name:"Cannon Artillery",group:"artillery",offense:25,defense:15,morale_loss:10,kill_rate:0.1,morale_damage:0,devastation:0.1,occupation:0,tech:"artillery",upkeep:[{good:"artillery",qty:1}],speed:-0.2},
+{id:"mobile_artillery",name:"Mobile Artillery",group:"artillery",offense:30,defense:15,morale_loss:8,kill_rate:0.2,morale_damage:0,devastation:0.15,occupation:0,tech:"napoleonic_warfare",upkeep:[{good:"artillery",qty:2}],speed:-0.2},
+{id:"shrapnel_artillery",name:"Shrapnel Artillery",group:"artillery",offense:45,defense:25,morale_loss:6,kill_rate:0.3,morale_damage:0,devastation:0.15,occupation:0,tech:"breech_loading_artillery",upkeep:[{good:"artillery",qty:3},{good:"ammunition",qty:3}],speed:-0.2},
+{id:"siege_artillery",name:"Siege Artillery",group:"artillery",offense:55,defense:30,morale_loss:6,kill_rate:0.25,morale_damage:0,devastation:0.2,occupation:0,tech:"defense_in_depth",upkeep:[{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1}],speed:-0.2},
+{id:"heavy_tank",name:"Heavy Tank",group:"artillery",offense:70,defense:35,morale_loss:4,kill_rate:0.25,morale_damage:0.15,devastation:0.2,occupation:0,tech:"mobile_armor",upkeep:[{good:"tanks",qty:3},{good:"artillery",qty:4},{good:"ammunition",qty:4},{good:"radios",qty:1},{good:"oil",qty:3}],speed:-0.2},
+{id:"hussars",name:"Hussars",group:"cavalry",offense:15,defense:10,morale_loss:10,kill_rate:0,morale_damage:0,devastation:0,occupation:0,tech:"standing_army",upkeep:[{good:"grain",qty:1}],speed:0.25},
+{id:"dragoons",name:"Dragoons",group:"cavalry",offense:20,defense:25,morale_loss:8,kill_rate:0,morale_damage:0,devastation:0,occupation:0.3,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}],speed:0},
+{id:"cuirassiers",name:"Cuirassiers",group:"cavalry",offense:25,defense:20,morale_loss:8,kill_rate:0,morale_damage:0,devastation:0,occupation:0.3,tech:"line_infantry",upkeep:[{good:"grain",qty:1},{good:"small_arms",qty:2}],speed:0},
+{id:"lancers",name:"Lancers",group:"cavalry",offense:30,defense:20,morale_loss:6,kill_rate:0.05,morale_damage:0,devastation:0,occupation:0.3,tech:"napoleonic_warfare",upkeep:[{good:"grain",qty:2},{good:"small_arms",qty:2},{good:"iron",qty:2}],speed:0,morale_loss_mult:0.05},
+{id:"light_tanks",name:"Light Tanks",group:"cavalry",offense:45,defense:45,morale_loss:4,kill_rate:0,morale_damage:0,devastation:0.1,occupation:0.3,tech:"mobile_armor",upkeep:[{good:"tanks",qty:2},{good:"artillery",qty:2},{good:"oil",qty:2},{good:"ammunition",qty:2},{good:"radios",qty:2}],speed:0.2}
 ];
+
+// Upgrade paths from game data — if ANY upgrade is available, the base unit is superseded
+const UPGRADES={
+irregular_infantry:["line_infantry","skirmish_infantry","trench_infantry","squad_infantry","mechanized_infantry"],
+line_infantry:["skirmish_infantry","trench_infantry","squad_infantry","mechanized_infantry"],
+skirmish_infantry:["trench_infantry","squad_infantry","mechanized_infantry"],
+trench_infantry:["squad_infantry","mechanized_infantry"],
+squad_infantry:["mechanized_infantry"],
+cannon_artillery:["mobile_artillery","shrapnel_artillery","siege_artillery"],
+mobile_artillery:["shrapnel_artillery","siege_artillery"],
+shrapnel_artillery:["siege_artillery"],
+hussars:["dragoons","cuirassiers","lancers"]
+};
 
 const TECHNOLOGIES=[
 {id:"standing_army",name:"Standing Army",era:1},
 {id:"line_infantry",name:"Line Infantry",era:1},
 {id:"artillery",name:"Artillery",era:1},
-{id:"napoleonic_warfare",name:"Napoleonic Warfare",era:2},
+{id:"napoleonic_warfare",name:"Napoleonic Warfare",era:1},
 {id:"general_staff",name:"General Staff",era:2},
-{id:"trench_works",name:"Trench Works",era:3},
 {id:"breech_loading_artillery",name:"Breech-Loading Artillery",era:3},
+{id:"trench_works",name:"Trench Works",era:4},
 {id:"defense_in_depth",name:"Defense in Depth",era:4},
-{id:"nco_training",name:"NCO Training",era:4},
+{id:"nco_training",name:"NCO Training",era:5},
 {id:"mobile_armor",name:"Mobile Armor",era:5}
 ];
 
@@ -777,10 +790,14 @@ skill:[
 {id:"trench_rat",name:"Trench Rat",mods:{unit_defense_add:10}},
 {id:"defense_in_depth_specialist",name:"Defense in Depth Specialist",mods:{unit_defense_add:20}},
 {id:"bandit",name:"Bandit",mods:{unit_morale_damage_mult:0.1}},
+{id:"social_bandit",name:"Social Bandit",mods:{unit_morale_damage_mult:0.1}},
+{id:"pillager",name:"Pillager",mods:{unit_devastation_mult:0.25}},
 {id:"plains_commander",name:"Plains Commander",mods:{unit_offense_flat_mult:0.25}},
 {id:"forest_commander",name:"Forest Commander",mods:{unit_defense_forested_mult:0.25}},
 {id:"mountain_commander",name:"Mountain Commander",mods:{unit_defense_elevated_mult:0.25}},
 {id:"surveyor",name:"Surveyor",mods:{battle_offense_owned_province_mult:0.1,battle_defense_owned_province_mult:0.1}},
+{id:"elder",name:"Elder",mods:{unit_supply_consumption_mult:-0.1,battle_offense_owned_province_mult:0.1,battle_defense_owned_province_mult:0.1}},
+{id:"resupply_commander",name:"Resupply Commander",mods:{unit_supply_consumption_mult:-0.1}},
 {id:"basic_diplomat",name:"Basic Diplomat",mods:{unit_morale_recovery_mult:0.25}},
 {id:"experienced_diplomat",name:"Experienced Diplomat",mods:{unit_morale_recovery_mult:0.5}},
 {id:"masterful_diplomat",name:"Masterful Diplomat",mods:{unit_morale_recovery_mult:1.0}},
@@ -795,38 +812,51 @@ personality:[
 {id:"innovative",name:"Innovative",mods:{unit_morale_loss_mult:-0.15}},
 {id:"imposing",name:"Imposing",mods:{unit_morale_loss_mult:-0.1}},
 {id:"reserved",name:"Reserved",mods:{unit_morale_loss_mult:-0.1}},
-{id:"meticulous",name:"Meticulous",mods:{unit_offense_mult:0.05,unit_defense_mult:0.05}},
+{id:"meticulous",name:"Meticulous",mods:{unit_offense_mult:0.05,unit_defense_mult:0.05,unit_recovery_rate_add:0.1}},
 {id:"charismatic",name:"Charismatic",mods:{unit_morale_recovery_mult:0.1}},
-{id:"tactful",name:"Tactful",mods:{unit_defense_add:5}},
+{id:"tactful",name:"Tactful",mods:{unit_defense_add:5,unit_morale_damage_mult:-0.05}},
 {id:"cruel",name:"Cruel",mods:{unit_kill_rate_add:0.10}},
 {id:"wrathful",name:"Wrathful",mods:{unit_morale_loss_mult:0.05,unit_morale_damage_mult:0.1}},
-{id:"ambitious",name:"Ambitious",mods:{unit_offense_mult:0.05}},
+{id:"ambitious",name:"Ambitious",mods:{unit_offense_mult:0.05,unit_recovery_rate_add:-0.05}},
 {id:"bigoted",name:"Bigoted",mods:{unit_offense_mult:0.05,unit_morale_loss_mult:0.05}},
 {id:"romantic",name:"Romantic",mods:{unit_morale_loss_mult:-0.1,unit_offense_mult:-0.1}},
 {id:"pious",name:"Pious",mods:{unit_kill_rate_add:-0.1,unit_morale_loss_mult:-0.25,unit_morale_recovery_mult:0.25}},
 {id:"imperious",name:"Imperious",mods:{unit_morale_loss_mult:-0.15,unit_morale_recovery_mult:-0.15}},
 {id:"reckless",name:"Reckless",mods:{unit_recovery_rate_add:-0.1}},
-{id:"hedonist",name:"Hedonist",mods:{unit_morale_recovery_mult:0.05}}
+{id:"hedonist",name:"Hedonist",mods:{unit_supply_consumption_mult:0.1,unit_morale_recovery_mult:0.05}}
 ],
 condition:[
+{id:"alcoholic",name:"Alcoholic",mods:{unit_morale_damage_mult:-0.1}},
 {id:"shellshocked",name:"Shellshocked",mods:{unit_morale_loss_mult:0.2,unit_offense_mult:-0.2,unit_defense_mult:-0.2}},
 {id:"war_criminal",name:"War Criminal",mods:{unit_kill_rate_add:0.1}},
 {id:"wounded",name:"Wounded",mods:{unit_morale_loss_mult:0.1}},
-{id:"senile",name:"Senile",mods:{unit_morale_loss_mult:0.1}}
+{id:"senile",name:"Senile",mods:{unit_morale_loss_mult:0.1}},
+{id:"kidney_stones",name:"Kidney Stones",mods:{unit_offense_mult:-0.1,unit_defense_mult:-0.1}},
+{id:"grifter",name:"Grifter",mods:{unit_supply_consumption_mult:0.05}}
 ]
 };
 
 const ORDERS={
-advance:{name:"Advance",mods:{unit_offense_mult:0.1}},
-defend:{name:"Defend",mods:{unit_defense_mult:0.1}}
+advance:{name:"Advance",mods:{unit_offense_mult:0.1},requires:null},
+advance_reckless:{name:"Advance (Reckless)",mods:{unit_offense_mult:0.15,unit_morale_loss_mult:0.1,unit_recovery_rate_add:-0.1},requires:{traits:["reckless"]}},
+advance_pillager:{name:"Advance (Pillage)",mods:{unit_kill_rate_add:0.3,unit_devastation_mult:1,unit_morale_damage_mult:0.2},requires:{traits:["cruel","wrathful","pillager"],any:true}},
+advance_cautious:{name:"Advance (Cautious)",mods:{unit_morale_loss_mult:-0.05,unit_recovery_rate_add:0.1},requires:{traits:["cautious"]}},
+advance_heavy_barrage:{name:"Advance (Heavy Barrage)",mods:{unit_devastation_mult:0.75,unit_kill_rate_add:0.25,unit_morale_damage_mult:0.15},requires:{traits:["basic_artillery_commander","experienced_artillery_commander","expert_artillery_commander"],any:true,note:"Requires 20%+ artillery"}},
+advance_cavalry_assault:{name:"Advance (Cavalry Assault)",mods:{unit_morale_damage_mult:0.1,unit_offense_mult:0.1,battle_casualties_mult:0.15},requires:{note:"Requires 30%+ cavalry"}},
+advance_tank_assault:{name:"Advance (Tank Assault)",mods:{unit_morale_loss_mult:-0.05,unit_offense_mult:0.15},requires:{traits:["innovative"],note:"Requires 30%+ heavy tanks"}},
+defend:{name:"Defend",mods:{unit_defense_mult:0.1},requires:null},
+defend_dig_in:{name:"Defend (Dig In)",mods:{unit_defense_mult:0.15,unit_supply_consumption_mult:0.2},requires:{traits:["basic_defensive_strategist","experienced_defensive_strategist","expert_defensive_strategist"],any:true}},
+defend_desperate_charge:{name:"Defend (Desperate Charge)",mods:{unit_kill_rate_add:0.25,unit_morale_damage_mult:0.15,battle_casualties_mult:0.2},requires:{traits:["brave"],note:"Requires 50%+ cavalry"}},
+defend_last_stand:{name:"Defend (Last Stand)",mods:{battle_casualties_mult:0.3,unit_defense_mult:0.2},requires:{traits:["stalwart_defender","trench_rat","defense_in_depth_specialist"],any:true}},
+defend_guerilla:{name:"Defend (Guerrilla Warfare)",mods:{unit_defense_mult:0.1,unit_morale_loss_mult:0.25},requires:{traits:["pillager","cruel","wrathful","bandit","social_bandit"],any:true,note:"Requires 80%+ infantry"}}
 };
 
 const VETERANCY=[
-{level:0,name:"No Veterancy",offense_mult:0,defense_mult:0},
-{level:1,name:"Veterancy I",offense_mult:0.05,defense_mult:0.05},
-{level:2,name:"Veterancy II",offense_mult:0.10,defense_mult:0.10},
-{level:3,name:"Veterancy III",offense_mult:0.15,defense_mult:0.15},
-{level:4,name:"Veterancy IV",offense_mult:0.25,defense_mult:0.25}
+{level:0,name:"No Veterancy",offense_mult:0,defense_mult:0,morale_damage_mult:0},
+{level:1,name:"Veterancy I",offense_mult:0.05,defense_mult:0.05,morale_damage_mult:0},
+{level:2,name:"Veterancy II",offense_mult:0.10,defense_mult:0.10,morale_damage_mult:0},
+{level:3,name:"Veterancy III",offense_mult:0.15,defense_mult:0.15,morale_damage_mult:0.25},
+{level:4,name:"Veterancy IV",offense_mult:0.25,defense_mult:0.25,morale_damage_mult:0.5}
 ];
 
 // State
@@ -851,17 +881,49 @@ function buildTechUI() {
         if (!eras[t.era]) eras[t.era] = [];
         eras[t.era].push(t);
     });
-    Object.keys(eras).sort().forEach(era => {
+    // Era buttons row
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;";
+    const allEras = Object.keys(eras).sort();
+    allEras.forEach(era => {
+        const btn = document.createElement("button");
+        btn.textContent = "Era " + era;
+        btn.style.cssText = "padding:4px 12px;border-radius:4px;border:1px solid #444;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:0.8rem;";
+        btn.onclick = function() { selectUpToEra(parseInt(era)); };
+        btnRow.appendChild(btn);
+    });
+    const clearBtn = document.createElement("button");
+    clearBtn.textContent = "Clear All";
+    clearBtn.style.cssText = "padding:4px 12px;border-radius:4px;border:1px solid #444;background:#21262d;color:#f85149;cursor:pointer;font-size:0.8rem;";
+    clearBtn.onclick = function() { selectUpToEra(0); };
+    btnRow.appendChild(clearBtn);
+    container.appendChild(btnRow);
+
+    allEras.forEach(era => {
         const div = document.createElement("div");
         div.className = "era-group";
-        div.innerHTML = '<div class="era-label">Era ' + era + '</div>';
+        const eraNames = {1:"Pre-1836",2:"1836\u20131861",3:"1862\u20131886",4:"1887\u20131911",5:"1911\u20131936"};
+        div.innerHTML = '<div class="era-label">Era ' + era + ' <span style="color:#484f58;font-weight:normal;font-size:0.75rem;">(' + (eraNames[era]||"") + ')</span></div>';
         eras[era].forEach(t => {
+            // Show what unit this tech unlocks
+            const unlocks = UNITS.filter(u => u.tech === t.id).map(u => u.name);
+            const unlockStr = unlocks.length ? ' <span style="color:#58a6ff;font-size:0.7rem;">\u2192 ' + unlocks.join(", ") + '</span>' : '';
             const lbl = document.createElement("label");
-            lbl.innerHTML = '<input type="checkbox" data-tech="' + t.id + '" onchange="toggleTech(this)"> ' + t.name;
+            lbl.innerHTML = '<input type="checkbox" data-tech="' + t.id + '" data-era="' + t.era + '" onchange="toggleTech(this)"> ' + t.name + unlockStr;
             div.appendChild(lbl);
         });
         container.appendChild(div);
     });
+}
+
+function selectUpToEra(maxEra) {
+    selectedTechs.clear();
+    document.querySelectorAll('#techChecks input[type=checkbox]').forEach(cb => {
+        const era = parseInt(cb.dataset.era);
+        cb.checked = era <= maxEra;
+        if (cb.checked) selectedTechs.add(cb.dataset.tech);
+    });
+    recalc();
 }
 
 function buildTraitUI() {
@@ -896,8 +958,16 @@ function buildOrderUI() {
     noneLbl.innerHTML = '<input type="radio" name="order" value="" checked onchange="setOrder(this)"> None';
     container.appendChild(noneLbl);
     Object.keys(ORDERS).forEach(k => {
+        const o = ORDERS[k];
         const lbl = document.createElement("label");
-        lbl.innerHTML = '<input type="radio" name="order" value="' + k + '" onchange="setOrder(this)"> ' + ORDERS[k].name;
+        let tip = "";
+        if (o.requires) {
+            const parts = [];
+            if (o.requires.traits) parts.push("Trait: " + o.requires.traits.join(o.requires.any ? " / " : " + "));
+            if (o.requires.note) parts.push(o.requires.note);
+            tip = ' title="' + parts.join("; ") + '"';
+        }
+        lbl.innerHTML = '<input type="radio" name="order" value="' + k + '" onchange="setOrder(this)"> <span' + tip + '>' + o.name + (o.requires ? ' *' : '') + '</span>';
         container.appendChild(lbl);
     });
 }
@@ -946,7 +1016,14 @@ function getModifiers() {
 }
 
 function getAvailableUnits() {
-    return UNITS.filter(u => u.tech === null || selectedTechs.has(u.tech));
+    const techAvail = UNITS.filter(u => u.tech === null || selectedTechs.has(u.tech));
+    const availIds = new Set(techAvail.map(u => u.id));
+    // Hide units that have been superseded by an available upgrade
+    return techAvail.filter(u => {
+        const ups = UPGRADES[u.id];
+        if (!ups) return true;
+        return !ups.some(uid => availIds.has(uid));
+    });
 }
 
 function computeStats(unit, mods) {
@@ -957,23 +1034,38 @@ function computeStats(unit, mods) {
     let offMult = (mods.unit_offense_mult || 0) + vet.offense_mult;
     let defMult = (mods.unit_defense_mult || 0) + vet.defense_mult;
     let moraleMult = mods.unit_morale_loss_mult || 0;
+    let moraleDmgMult = (mods.unit_morale_damage_mult || 0) + vet.morale_damage_mult;
+    let devMult = mods.unit_devastation_mult || 0;
 
+    // Artillery commander per-unit-type offense bonus
     if (unit.group === "artillery") {
         offMult += (mods.unit_artillery_offense_mult || 0);
+    }
+
+    // Unit-specific morale loss multiplier (e.g. Lancers)
+    if (unit.morale_loss_mult) {
+        moraleMult += unit.morale_loss_mult;
     }
 
     if (selectedOrder && ORDERS[selectedOrder]) {
         const om = ORDERS[selectedOrder].mods;
         if (om.unit_offense_mult) offMult += om.unit_offense_mult;
         if (om.unit_defense_mult) defMult += om.unit_defense_mult;
+        if (om.unit_morale_loss_mult) moraleMult += om.unit_morale_loss_mult;
+        if (om.unit_kill_rate_add) killAdd += om.unit_kill_rate_add;
+        if (om.unit_morale_damage_mult) moraleDmgMult += om.unit_morale_damage_mult;
+        if (om.unit_devastation_mult) devMult += om.unit_devastation_mult;
+        if (om.unit_recovery_rate_add) {} // tracked but not displayed per-unit
     }
 
     const effOff = (unit.offense + offAdd) * (1 + offMult);
     const effDef = (unit.defense + defAdd) * (1 + defMult);
     const effMorale = unit.morale_loss * (1 + moraleMult);
     const effKill = unit.kill_rate + killAdd;
+    const effMoraleDmg = unit.morale_damage + moraleDmgMult;
+    const effDev = unit.devastation + devMult;
 
-    return {offense: effOff, defense: effDef, morale_loss: effMorale, kill_rate: effKill};
+    return {offense: effOff, defense: effDef, morale_loss: effMorale, kill_rate: effKill, morale_damage: effMoraleDmg, devastation: effDev, occupation: unit.occupation, speed: unit.speed};
 }
 
 function fmtUpkeep(upkeep) {
@@ -1012,6 +1104,8 @@ function renderUnitTable(available, mods) {
             '<td class="stat-def">' + s.defense.toFixed(1) + '</td>' +
             '<td class="stat-mor">' + s.morale_loss.toFixed(1) + '</td>' +
             '<td class="stat-kill">' + s.kill_rate.toFixed(2) + '</td>' +
+            '<td>' + (s.morale_damage > 0 ? '+' + (s.morale_damage * 100).toFixed(0) + '%' : '-') + '</td>' +
+            '<td>' + (s.devastation > 0 ? '+' + (s.devastation * 100).toFixed(0) + '%' : '-') + '</td>' +
             '<td style="font-size:0.75rem;color:#8b949e;">' + fmtUpkeep(u.upkeep) + '</td>';
         tbody.appendChild(tr);
     });
@@ -1070,82 +1164,147 @@ function setBn(input) {
     renderRecommendations(available, mods);
 }
 
+function bestUnit(units, scoreFn) {
+    return [...units].sort((a,b) => scoreFn(b) - scoreFn(a))[0] || null;
+}
+
+function buildComp(available, mods, ratios, N) {
+    // ratios: {infantry: 0.5, artillery: 0.4, cavalry: 0.1}
+    const offScore = u => { const s = computeStats(u, mods); return s.offense + s.kill_rate * 100; };
+    const defScore = u => { const s = computeStats(u, mods); return s.defense; };
+    const balScore = u => { const s = computeStats(u, mods); return s.offense + s.defense; };
+
+    const comp = {};
+    let assigned = 0;
+    const groups = ["infantry","artillery","cavalry"];
+
+    groups.forEach(g => {
+        const pct = ratios[g] || 0;
+        if (pct <= 0) return;
+        const candidates = available.filter(u => u.group === g);
+        if (candidates.length === 0) return;
+        const pick = bestUnit(candidates, balScore);
+        const cnt = Math.round(N * pct);
+        comp[pick.id] = cnt;
+        assigned += cnt;
+    });
+
+    // Adjust rounding to hit N exactly — add/remove from largest group
+    let diff = N - assigned;
+    if (diff !== 0) {
+        const largestGroup = groups.reduce((best, g) => {
+            const gUnits = Object.entries(comp).filter(([uid]) => UNITS.find(u => u.id === uid).group === g);
+            const gTotal = gUnits.reduce((s, [,c]) => s + c, 0);
+            return gTotal > (best.total || 0) ? {group: g, total: gTotal} : best;
+        }, {});
+        const adjustUid = Object.keys(comp).find(uid => UNITS.find(u => u.id === uid).group === largestGroup.group);
+        if (adjustUid) comp[adjustUid] += diff;
+    }
+
+    // Compute totals
+    let totalOff = 0, totalDef = 0, totalKill = 0, totalMorale = 0;
+    Object.entries(comp).forEach(([uid, cnt]) => {
+        if (cnt <= 0) return;
+        const u = UNITS.find(x => x.id === uid);
+        const s = computeStats(u, mods);
+        totalOff += s.offense * cnt;
+        totalDef += s.defense * cnt;
+        totalKill += s.kill_rate * cnt;
+        totalMorale += s.morale_loss * cnt;
+    });
+    return {comp, totalOff, totalDef, totalKill, totalMorale};
+}
+
 function renderRecommendations(available, mods) {
     const N = parseInt(document.getElementById("totalBn").value) || 20;
     const container = document.getElementById("recCards");
     container.innerHTML = "";
 
     const infantry = available.filter(u => u.group === "infantry");
-    const allUnits = available;
+    const artillery = available.filter(u => u.group === "artillery");
+    const cavalry = available.filter(u => u.group === "cavalry");
 
     if (infantry.length === 0) {
         container.innerHTML = '<p style="color:#8b949e;">No infantry available. Unlock at least one infantry unit.</p>';
         return;
     }
 
-    const objectives = [
-        {name: "Best Offensive", key: "off", score: u => { const s = computeStats(u, mods); return s.offense + s.kill_rate * 100; }},
-        {name: "Best Defensive", key: "def", score: u => { const s = computeStats(u, mods); return s.defense; }},
-        {name: "Balanced", key: "bal", score: u => { const s = computeStats(u, mods); return s.offense + s.defense; }}
-    ];
+    // Community-meta compositions (sourced from Paradox forums, Reddit, guides)
+    const templates = [];
 
-    objectives.forEach(obj => {
-        const infMin = Math.ceil(N * 0.5);
-        const sortedInf = [...infantry].sort((a, b) => obj.score(b) - obj.score(a));
-        const sortedAll = [...allUnits].sort((a, b) => obj.score(b) - obj.score(a));
-
-        const comp = {};
-        let infFilled = 0;
-
-        // Fill infantry minimum
-        const bestInf = sortedInf[0];
-        comp[bestInf.id] = infMin;
-        infFilled = infMin;
-
-        // Fill remaining with best overall units
-        let remaining = N - infMin;
-        for (let i = 0; i < sortedAll.length && remaining > 0; i++) {
-            const u = sortedAll[i];
-            if (u.group === "infantry" && u.id === bestInf.id) {
-                comp[u.id] = (comp[u.id] || 0) + remaining;
-                remaining = 0;
-            } else if (u.group !== "infantry" || u.id !== bestInf.id) {
-                comp[u.id] = (comp[u.id] || 0) + remaining;
-                remaining = 0;
-            }
-        }
-
-        // Compute total score
-        let totalOff = 0, totalDef = 0, totalKill = 0;
-        Object.entries(comp).forEach(([uid, cnt]) => {
-            const u = UNITS.find(x => x.id === uid);
-            const s = computeStats(u, mods);
-            totalOff += s.offense * cnt;
-            totalDef += s.defense * cnt;
-            totalKill += s.kill_rate * cnt;
+    // Always show offensive and defensive
+    if (artillery.length > 0) {
+        templates.push({
+            name: "Offensive (Meta)",
+            desc: "50/50 infantry-artillery — community consensus best offensive composition",
+            ratios: {infantry: 0.5, artillery: 0.5, cavalry: 0}
         });
+        templates.push({
+            name: "Defensive",
+            desc: "90% infantry / 10% artillery — cheap, holds the line",
+            ratios: {infantry: 0.9, artillery: 0.1, cavalry: 0}
+        });
+    }
 
-        let scoreVal;
-        if (obj.key === "off") scoreVal = totalOff + totalKill * 100;
-        else if (obj.key === "def") scoreVal = totalDef;
-        else scoreVal = totalOff + totalDef;
+    // Balanced with all three groups
+    if (artillery.length > 0 && cavalry.length > 0) {
+        templates.push({
+            name: "Balanced",
+            desc: "50/40/10 infantry-artillery-cavalry — all-rounder composition",
+            ratios: {infantry: 0.5, artillery: 0.4, cavalry: 0.1}
+        });
+    }
+
+    // Colonial / blitz if cavalry available
+    if (cavalry.length > 0) {
+        templates.push({
+            name: "Colonial / Blitz",
+            desc: "50% infantry / 50% cavalry — fast occupation and naval invasions",
+            ratios: {infantry: 0.5, artillery: 0, cavalry: 0.5}
+        });
+    }
+
+    // Late-game tank composition if tanks are available
+    const hasTanks = available.some(u => u.id === "heavy_tank" || u.id === "light_tanks");
+    if (hasTanks && artillery.length > 0) {
+        templates.push({
+            name: "Armored Offensive",
+            desc: "40/40/20 infantry-artillery-tanks — late-game breakthrough force",
+            ratios: {infantry: 0.4, artillery: 0.4, cavalry: 0.2}
+        });
+    }
+
+    // Fallback: infantry only if nothing else available
+    if (artillery.length === 0 && cavalry.length === 0) {
+        templates.push({
+            name: "Infantry Only",
+            desc: "100% infantry — no support units researched yet",
+            ratios: {infantry: 1, artillery: 0, cavalry: 0}
+        });
+    }
+
+    templates.forEach(tmpl => {
+        const {comp, totalOff, totalDef, totalKill, totalMorale} = buildComp(available, mods, tmpl.ratios, N);
 
         const card = document.createElement("div");
         card.className = "rec-card";
         let listHtml = "";
         Object.entries(comp).filter(([_,c]) => c > 0).forEach(([uid, cnt]) => {
             const u = UNITS.find(x => x.id === uid);
-            listHtml += '<li><span>' + cnt + 'x</span> ' + u.name + '</li>';
+            const s = computeStats(u, mods);
+            listHtml += '<li><span>' + cnt + 'x</span> ' + u.name + ' <span style="color:#8b949e;font-size:0.75rem;">(off ' + s.offense.toFixed(0) + ' def ' + s.defense.toFixed(0) + ' kill ' + s.kill_rate.toFixed(2) + ')</span></li>';
         });
         card.innerHTML =
-            '<h3>' + obj.name + '</h3>' +
-            '<div class="rec-score">Score: ' + scoreVal.toFixed(1) + ' | Off: ' + totalOff.toFixed(1) + ' Def: ' + totalDef.toFixed(1) + ' Kill: ' + totalKill.toFixed(2) + '</div>' +
+            '<h3>' + tmpl.name + '</h3>' +
+            '<div style="color:#8b949e;font-size:0.8rem;margin-bottom:6px;">' + tmpl.desc + '</div>' +
+            '<div class="rec-score">Off: ' + totalOff.toFixed(1) + ' | Def: ' + totalDef.toFixed(1) + ' | Kill: ' + totalKill.toFixed(2) + ' | Morale: ' + totalMorale.toFixed(1) + '</div>' +
             '<ul>' + listHtml + '</ul>';
         container.appendChild(card);
     });
 }
 
 init();
+// Unit stats sourced from Victoria 3 game data files (common/combat_unit_types, character_traits, commander_orders, combat_unit_experience_levels)
 </script>
 </body>
 </html>'''

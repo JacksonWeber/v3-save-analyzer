@@ -132,6 +132,31 @@
         tr:hover td { background: rgba(233, 69, 96, 0.05); }
         .num { text-align: right; font-variant-numeric: tabular-nums; }
 
+        /* Top 10 Ranking */
+        .top10-table { margin-bottom: 24px; }
+        .top10-table .rank-num {
+            font-weight: bold;
+            color: var(--gold);
+            text-align: center;
+            width: 40px;
+        }
+        .top10-table .rank-1 .rank-num { color: #ffd700; font-size: 1.1em; }
+        .top10-table .rank-2 .rank-num { color: #c0c0c0; }
+        .top10-table .rank-3 .rank-num { color: #cd7f32; }
+        .top10-table .player-row { background: rgba(212, 168, 67, 0.1); }
+        .top10-table .player-row td:first-child { border-left: 3px solid var(--gold); }
+        .player-badge {
+            display: inline-block;
+            background: var(--gold);
+            color: #000;
+            font-size: 0.65em;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
         /* Responsive */
         @media (max-width: 700px) {
             .charts-grid { grid-template-columns: 1fr; }
@@ -288,6 +313,42 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
+
+        {% if top_countries %}
+        <h2>🏆 Top 10 Countries</h2>
+        <table class="top10-table">
+            <thead>
+                <tr>
+                    <th style="text-align:center">#</th>
+                    <th>Country</th>
+                    <th class="num">Prestige</th>
+                    <th class="num">GDP</th>
+                    <th class="num">Population</th>
+                    <th class="num">Army</th>
+                    <th class="num">Navy</th>
+                    <th class="num">States</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in top_countries %}
+                <tr class="rank-{{ c.rank }}{% if c.is_player %} player-row{% endif %}">
+                    <td class="rank-num">{{ c.rank }}</td>
+                    <td>
+                        <strong>{{ c.name }}</strong>
+                        <span style="color:var(--text-secondary);font-size:0.8em;margin-left:4px;">({{ c.tag }})</span>
+                        {% if c.is_player %}<span class="player-badge">YOU</span>{% endif %}
+                    </td>
+                    <td class="num">{{ c.prestige }}</td>
+                    <td class="num">{{ c.gdp }}</td>
+                    <td class="num">{{ c.population }}</td>
+                    <td class="num">{{ c.army_size }}</td>
+                    <td class="num">{{ c.navy_size }}</td>
+                    <td class="num">{{ c.num_states }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endif %}
 
         {% if map_svg %}

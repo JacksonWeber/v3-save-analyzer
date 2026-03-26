@@ -631,13 +631,51 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
     """Extract territory data: all states grouped by owning country."""
     countries_db = _get_countries_db(gamestate)
 
-    # Build country_id → tag/name mapping
+    # Build country_id → tag/name mapping + per-country metadata
     id_to_info = {}
+    tag_to_meta = {}  # tag → {name, prestige, military_strength, army_size, navy_size, rank, tech_count}
     for cid, cdata in countries_db.items():
         if isinstance(cdata, dict):
             tag = str(cdata.get("definition", cdata.get("tag", str(cid))))
             id_to_info[cid] = tag
             id_to_info[str(cid)] = tag
+
+            name = _get_country_name(cdata, tag)
+
+            # Prestige: may be a dict with channels (melted) or a direct value
+            prestige_raw = cdata.get("prestige", 0)
+            if isinstance(prestige_raw, dict):
+                vals = _extract_channel_values(prestige_raw)
+                prestige = vals[-1] if vals else 0
+            elif isinstance(prestige_raw, (int, float)):
+                prestige = prestige_raw
+            else:
+                prestige = 0
+
+            # Military
+            mil = cdata.get("military", {})
+            army_size = mil.get("army_size", 0) if isinstance(mil, dict) else 0
+            navy_size = mil.get("navy_size", 0) if isinstance(mil, dict) else 0
+
+            # Technology count
+            tech_count = 0
+            tech = cdata.get("technology", {})
+            if isinstance(tech, dict):
+                acquired = tech.get("acquired_technologies", [])
+                if isinstance(acquired, list):
+                    tech_count = len(acquired)
+
+            # Country rank
+            rank = cdata.get("country_rank", cdata.get("rank", ""))
+
+            tag_to_meta[tag] = {
+                "name": name,
+                "prestige": float(prestige) if isinstance(prestige, (int, float)) else 0,
+                "army_size": int(army_size) if isinstance(army_size, (int, float)) else 0,
+                "navy_size": int(navy_size) if isinstance(navy_size, (int, float)) else 0,
+                "rank": str(rank),
+                "tech_count": tech_count,
+            }
 
     # Extract subject relationships
     subject_map = _extract_subject_map(gamestate)
@@ -674,12 +712,19 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
                     gdp = 0
 
                 if tag not in territories:
+                    meta = tag_to_meta.get(tag, {})
                     territories[tag] = {
                         "tag": tag,
+                        "name": meta.get("name", tag),
                         "is_player": (tag == player_tag),
                         "states": [],
                         "total_pop": 0,
                         "total_gdp": 0,
+                        "prestige": meta.get("prestige", 0),
+                        "army_size": meta.get("army_size", 0),
+                        "navy_size": meta.get("navy_size", 0),
+                        "rank": meta.get("rank", ""),
+                        "tech_count": meta.get("tech_count", 0),
                     }
                 territories[tag]["states"].append({
                     "name": display,
@@ -691,8 +736,8 @@ def _extract_territory_map(gamestate: dict, player_tag: str) -> dict:
                 territories[tag]["total_pop"] += pop
                 territories[tag]["total_gdp"] += gdp
 
-    # Sort countries by total GDP descending, states within each by population
-    country_list = sorted(territories.values(), key=lambda c: -c["total_gdp"])
+    # Sort countries by prestige descending (game ranking), fallback to GDP
+    country_list = sorted(territories.values(), key=lambda c: (-c["prestige"], -c["total_gdp"]))
     for c in country_list:
         c["states"].sort(key=lambda s: -s["population"])
 
