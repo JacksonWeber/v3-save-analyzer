@@ -104,13 +104,17 @@ def _find_rakaly() -> str:
     3. In a rakaly-* subdirectory of project root
     4. On system PATH
     """
+    import platform
     module_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.dirname(module_dir)
 
-    candidates = [
-        os.path.join(module_dir, "rakaly"),
-        os.path.join(project_dir, "rakaly"),
-    ]
+    exe = "rakaly.exe" if platform.system() == "Windows" else "rakaly"
+    names = [exe, "rakaly"] if exe != "rakaly" else ["rakaly"]
+
+    candidates = []
+    for name in names:
+        candidates.append(os.path.join(module_dir, name))
+        candidates.append(os.path.join(project_dir, name))
 
     # Check rakaly-* directories in project root
     if os.path.isdir(project_dir):
@@ -118,10 +122,11 @@ def _find_rakaly() -> str:
             if entry.startswith("rakaly-") and os.path.isdir(
                 os.path.join(project_dir, entry)
             ):
-                candidates.append(os.path.join(project_dir, entry, "rakaly"))
+                for name in names:
+                    candidates.append(os.path.join(project_dir, entry, name))
 
     for path in candidates:
-        if os.path.isfile(path) and os.access(path, os.X_OK):
+        if os.path.isfile(path):
             return path
 
     # Check PATH

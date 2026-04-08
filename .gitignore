@@ -25,3 +25,11 @@ Thumbs.db
 rakaly-*/
 rakaly.tar.gz
 output_*/
+
+# Rust/Wasm build artifacts
+wasm-melter/target/
+wasm-melter/pkg/
+
+# Node
+web/node_modules/
+web/dist/

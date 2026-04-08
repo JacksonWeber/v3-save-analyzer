@@ -1,0 +1,26 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/wasm/*"]
+  },
+  "mimeTypes": {
+    ".wasm": "application/wasm"
+  },
+  "globalHeaders": {
+    "Cache-Control": "public, max-age=31536000, immutable"
+  },
+  "routes": [
+    {
+      "route": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    },
+    {
+      "route": "/assets/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    }
+  ]
+}

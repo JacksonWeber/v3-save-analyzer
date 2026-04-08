@@ -242,7 +242,13 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
             border-radius: 3px;
             font-size: 0.95em;
         }
+        .status-text {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 <body>
     <div class="upload-container">
@@ -252,7 +258,7 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
         <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
             <div class="drop-zone" id="dropZone">
                 <input type="file" name="savefile" id="fileInput" accept=".v3,.zip">
-                <div class="icon">📂</div>
+                <div class="icon">&#128194;</div>
                 <div class="text">Drop your <strong>.v3 save file</strong> here<br>or click to browse</div>
             </div>
             <div class="file-name" id="fileName"></div>
@@ -261,13 +267,14 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <div>Parsing save file & generating dashboard...</div>
+            <div class="status-text" id="statusText">Reading save file...</div>
         </div>
 
         <div class="error" id="error"></div>
 
         <div class="hint">
-            Save must be in <strong>text format</strong>. Set
+            Supports <strong>text</strong> and <strong>zipped text</strong> saves.
+            For best results set
             <code>"save_file_format": "zip_text_all"</code>
             in your <code>pdx_settings.json</code>
         </div>
@@ -281,11 +288,36 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
     const form = document.getElementById('uploadForm');
     const loading = document.getElementById('loading');
     const errorDiv = document.getElementById('error');
+    const statusText = document.getElementById('statusText');
+
+    function setStatus(msg) { statusText.textContent = msg; }
+    function showError(msg) {
+        loading.classList.remove('active');
+        submitBtn.disabled = false;
+        errorDiv.innerHTML = msg;
+        errorDiv.classList.add('active');
+    }
+
+    function isBinaryGamestate(bytes) {
+        if (bytes.length >= 2) {
+            const magic = bytes[0] | (bytes[1] << 8);
+            if (magic === 0x55AD) return true;
+        }
+        const sample = bytes.slice(0, 500);
+        let nonPrintable = 0;
+        for (let i = 0; i < sample.length; i++) {
+            const b = sample[i];
+            if (b < 0x09 || (b >= 0x0E && b < 0x20 && b !== 0x1B))
+                nonPrintable++;
+        }
+        return nonPrintable > sample.length * 0.10;
+    }
 
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
             fileName.textContent = fileInput.files[0].name;
             submitBtn.disabled = false;
+            errorDiv.classList.remove('active');
         }
     });
 
@@ -299,29 +331,62 @@ UPLOAD_PAGE = '''<!DOCTYPE html>
         dropZone.addEventListener(evt, () => dropZone.classList.remove('drag-over'));
     });
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         errorDiv.classList.remove('active');
         loading.classList.add('active');
         submitBtn.disabled = true;
 
-        const formData = new FormData(form);
-        fetch('/upload', { method: 'POST', body: formData })
-            .then(resp => {
-                if (resp.redirected) {
-                    window.location.href = resp.url;
-                } else {
-                    return resp.text().then(text => {
-                        throw new Error(text || 'Upload failed');
-                    });
+        const file = fileInput.files[0];
+        if (!file) { showError('No file selected.'); return; }
+
+        try {
+            setStatus('Reading save file...');
+            const buf = await file.arrayBuffer();
+
+            // Check if it's a ZIP
+            const header = new Uint8Array(buf.slice(0, 4));
+            const isZip = (header[0] === 0x50 && header[1] === 0x4B &&
+                           header[2] === 0x03 && header[3] === 0x04);
+
+            if (isZip) {
+                setStatus('Extracting save archive...');
+                const zip = await JSZip.loadAsync(buf);
+
+                // Find gamestate entry
+                let gsEntry = null;
+                zip.forEach((path, entry) => {
+                    if (path.toLowerCase().includes('gamestate')) gsEntry = entry;
+                });
+                if (!gsEntry) {
+                    showError('No gamestate file found inside the archive.');
+                    return;
                 }
-            })
-            .catch(err => {
-                loading.classList.remove('active');
-                submitBtn.disabled = false;
-                errorDiv.textContent = err.message;
-                errorDiv.classList.add('active');
-            });
+
+                // Check if binary
+                setStatus('Checking save format...');
+                const gsBytes = await gsEntry.async('uint8array');
+                if (isBinaryGamestate(gsBytes)) {
+                    setStatus('Binary/Ironman save detected — converting on server...');
+                }
+            }
+
+            setStatus('Uploading to server...');
+            const formData = new FormData();
+            formData.append('savefile', file);
+
+            const resp = await fetch('/upload', { method: 'POST', body: formData });
+            if (resp.redirected) {
+                window.location.href = resp.url;
+            } else {
+                const text = await resp.text();
+                throw new Error(text || 'Upload failed');
+            }
+        } catch (err) {
+            if (err.message && !errorDiv.classList.contains('active')) {
+                showError(err.message);
+            }
+        }
     });
     </script>
 </body>
@@ -1410,6 +1475,20 @@ class AnalyzerHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Location", "/select")
             self.end_headers()
 
+        except ValueError as e:
+            msg = str(e)
+            if "Binary" in msg or "Rakaly" in msg:
+                self._send_error_text(
+                    400,
+                    "Binary/Ironman save detected but the server cannot "
+                    "convert it (Rakaly CLI not found). Options:\n"
+                    "1. Use https://pdx.tools to melt it online first\n"
+                    "2. Install Rakaly CLI on the server\n"
+                    "3. Re-save your game with save_file_format: zip_text_all"
+                )
+            else:
+                traceback.print_exc()
+                self._send_error_text(500, msg)
         except Exception as e:
             traceback.print_exc()
             self._send_error_text(500, str(e))
@@ -1519,7 +1598,7 @@ def run_server(output_dir="output", port=8080):
         *args, output_dir=OUTPUT_DIR, **kwargs
     )
     server = http.server.HTTPServer(("0.0.0.0", port), handler)
-    print(f"\n🌐 V3 Save Analyzer running at http://localhost:{port}")
+    print(f"\n[*] V3 Save Analyzer running at http://localhost:{port}")
     print("   Upload a .v3 save file to analyze it.")
     print("   Press Ctrl+C to stop.\n")
     try:
